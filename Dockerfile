@@ -1,10 +1,15 @@
-FROM golang:1.27-alpine AS build
-RUN apk add --no-cache build-base make
+FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.6.1 AS xx
+
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+COPY --from=xx / /
+RUN apk add --no-cache clang lld make
 WORKDIR /src
 COPY go.mod go.sum Makefile VERSION ./
 RUN make deps && go mod download
+ARG TARGETPLATFORM
+RUN xx-apk add --no-cache gcc musl-dev
 COPY . .
-RUN make build EXTRA_LDFLAGS="-linkmode=external -extldflags=-static"
+RUN xx-go --wrap && make build EXTRA_LDFLAGS="-linkmode=external -extldflags=-static" && xx-verify --static build/tossling-server
 
 FROM alpine:3
 RUN apk add --no-cache ca-certificates tzdata

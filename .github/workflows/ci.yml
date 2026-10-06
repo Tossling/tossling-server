@@ -41,6 +41,15 @@ jobs:
           TOSSLING_CLI: docker exec tossling tossling-server
       - name: New setup link
         run: test "$(curl -s -o /dev/null -w '%{http_code}' "$(docker exec tossling tossling-server setup-link)")" = 200
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: The arm64 image
+        run: |
+          docker buildx build --platform linux/arm64 --cache-from type=gha --cache-to type=gha,mode=max --load -t tossling-server:arm64 .
+          docker run -d --name tossling-arm64 --platform linux/arm64 -p 18091:8090 -e TOSSLING_BASE_URL=http://127.0.0.1:18091 tossling-server:arm64
+          docker exec tossling-arm64 uname -m | grep -qx aarch64
+          for i in $(seq 1 100); do curl -sf http://127.0.0.1:18091/v1/tossy/health && exit 0; sleep 0.2; done
+          docker logs tossling-arm64; exit 1
       - if: failure()
         run: docker logs tossling
       - name: Save the image
