@@ -1,0 +1,33 @@
+{{template "admin-top" .}}
+{{with .Project}}
+<header class="page-title">
+<a class="back" href="/admin/projects">← {{$.T.NavProjects}}</a>
+<h1>{{.Name}}</h1>
+<p class="muted mono">{{.Topic}} · {{if .Publisher}}{{.Publisher}}{{else if $.DeviceChannel}}{{$.T.DevicesWrite}}{{else}}{{$.T.NoPublisher}}{{end}}</p>
+</header>
+<section class="glass" id="events" data-stream="/admin/projects/{{.Topic}}/events" data-name="{{.Name}}">
+<div class="row-head live-head">{{$.T.Events}}<span class="live" title="{{$.T.Live}}"></span></div>
+{{range $i, $e := $.Events}}{{if $i}}<div class="divider flat"></div>{{end}}
+<div class="event p{{$e.Priority}}">
+<div class="event-head"><span class="event-title">{{if $e.Title}}{{$e.Title}}{{else}}{{$.Project.Name}}{{end}}</span><span class="item-time">{{when $e.Time}}</span></div>
+{{if $e.Message}}<div class="event-text">{{$e.Message}}</div>{{end}}
+</div>
+{{else}}<p class="empty" id="no-events">{{$.T.NoEvents}}</p>{{end}}
+</section>
+<form class="glass form" method="post" action="/admin/projects/{{.Topic}}/rename">
+<label class="field"><span>{{$.T.Rename}}</span><input name="name" value="{{.Name}}" required></label>
+<button type="submit" class="secondary">{{$.T.Save}}</button>
+</form>
+{{if not $.DeviceChannel}}
+<section class="glass form">
+<div class="row-head">{{$.T.Example}}</div>
+<div class="cmd"><code>{{$.Command}}</code></div>
+</section>
+{{end}}
+<section class="actions">
+{{if or .Publisher $.DeviceChannel}}<form method="post" action="/admin/projects/{{.Topic}}/test"><button type="submit" class="secondary">{{$.T.SendTest}}</button></form>{{end}}
+{{if .Publisher}}<form method="post" action="/admin/projects/{{.Topic}}/token" data-confirm="{{printf $.T.NewTokenNote .Publisher}}"><button type="submit" class="secondary">{{$.T.NewToken}}</button></form>{{end}}
+<form method="post" action="/admin/projects/{{.Topic}}/delete" data-confirm="{{$.T.DeleteNote}}"><button type="submit" class="danger">{{$.T.Delete}}</button></form>
+</section>
+{{end}}
+{{template "admin-bottom" .}}

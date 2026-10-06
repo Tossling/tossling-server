@@ -1,0 +1,12 @@
+{{template "top" .}}
+<section class="hero narrow">
+<img class="logo" src="{{asset "logo.svg"}}" width="112" height="112" alt="">
+<h1>{{.T.LoginTitle}}</h1>
+<p class="muted">{{.T.LoginSubtitle}}</p>
+<form class="glass form" method="post" action="/admin/login">
+<label class="field"><span>{{.T.Password}}</span><input type="password" name="password" autocomplete="current-password" required autofocus></label>
+{{if .Error}}<p class="flash bad">{{.Error}}</p>{{end}}
+<button type="submit" class="primary">{{.T.LoginButton}}</button>
+</form>
+</section>
+{{template "bottom" .}}

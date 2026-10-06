@@ -1,0 +1,31 @@
+{{template "admin-top" .}}
+<header class="page-title"><h1>{{.T.NavSecurity}}</h1></header>
+<section class="glass">
+<div class="row-head">{{.T.Publishers}}</div>
+{{range $i, $p := .Publishers}}{{if $i}}<div class="divider flat"></div>{{end}}
+<div class="item static">
+<span class="item-main"><span class="item-title mono">{{$p.Name}}</span><span class="item-sub">{{$.T.Channels}}: {{range $j, $t := $p.Topics}}{{if $j}}, {{end}}<a href="/admin/projects/{{$t}}">{{$t}}</a>{{end}}</span></span>
+<span class="item-side"><span class="item-time">{{if $p.LastUsed.IsZero}}{{$.T.NeverUsed}}{{else}}{{when $p.LastUsed}}{{if $p.LastOrigin}} · {{$p.LastOrigin}}{{end}}{{end}}</span></span>
+</div>
+{{else}}<p class="empty">{{.T.NoPublishers}}</p>{{end}}
+</section>
+<section class="glass form">
+<div class="row-head">{{.T.SetupLink}}</div>
+{{if .SetupLink}}<p class="note">{{.T.SetupLinkReady}}</p>
+<div class="cmd"><code>{{.SetupLink}}</code>{{template "copy" (dict "Value" .SetupLink "Label" .T.Copy "Copied" .T.Copied)}}</div>
+{{else}}<p class="note">{{.T.SetupLinkNote}}</p>
+<form method="post" action="/admin/security/setup-link"><button type="submit" class="secondary">{{.T.SetupLink}}</button></form>{{end}}
+</section>
+<form class="glass form" method="post" action="/admin/security/password">
+<div class="row-head">{{.T.ChangePassword}}</div>
+<label class="field"><span>{{.T.CurrentPassword}}</span><input type="password" name="current" autocomplete="current-password" required></label>
+<label class="field"><span>{{.T.NewPassword}}</span><input type="password" name="password" autocomplete="new-password" minlength="10" required><small>{{.T.PasswordShort}}</small></label>
+<label class="field"><span>{{.T.PasswordRepeat}}</span><input type="password" name="repeat" autocomplete="new-password" minlength="10" required></label>
+<button type="submit" class="secondary">{{.T.ChangePassword}}</button>
+</form>
+<section class="glass form">
+<div class="row-head">{{.T.LogoutAll}}</div>
+<p class="note">{{.T.LogoutAllNote}}</p>
+<form method="post" action="/admin/security/logout-all" data-confirm="{{.T.LogoutAllNote}}"><button type="submit" class="danger">{{.T.LogoutAll}}</button></form>
+</section>
+{{template "admin-bottom" .}}

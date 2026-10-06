@@ -1,0 +1,45 @@
+{{template "top" .}}
+<header class="page-title">
+<img class="logo small" src="{{asset "logo.svg"}}" width="56" height="56" alt="">
+<h1>{{.T.SetupTitle}}</h1>
+<p class="muted">{{.T.SetupSubtitle}}</p>
+</header>
+
+<section class="glass">
+{{range $i, $c := .Checks}}{{if $i}}<div class="divider"></div>{{end}}
+<div class="row"><span class="mark {{if $c.OK}}ok{{else}}warn{{end}}" aria-hidden="true">{{if $c.OK}}✓{{else}}!{{end}}</span><span>{{$c.Text}}</span></div>
+{{end}}
+</section>
+
+<section class="glass">
+<div class="step"><span class="num">1</span><div class="step-body"><div class="step-title">{{.T.StepInstall}}</div>
+<p class="note"><a href="https://github.com/tossling/tossling-desktop#readme">{{.T.InstallNote}}</a></p></div></div>
+<div class="divider"></div>
+<div class="step"><span class="num">2</span><div class="step-body"><div class="step-title">{{.T.StepRun}}</div>
+<div class="cmd"><code>{{.Command}}</code>{{template "copy" (dict "Value" .Command "Label" .T.Copy "Copied" .T.Copied)}}</div></div></div>
+<div class="divider"></div>
+<div class="step"><span class="num">3</span><div class="step-body"><div class="step-title">{{.T.StepToken}}</div>
+<div class="cmd"><code>{{.Token}}</code>{{template "copy" (dict "Value" .Token "Label" .T.Copy "Copied" .T.Copied)}}</div>
+<p class="note">{{.T.TokenNote}}</p></div></div>
+<div class="divider"></div>
+<div class="step"><span class="num">4</span><div class="step-body"><div class="step-title">{{.T.StepPhone}}</div></div></div>
+</section>
+
+<section class="glass form">
+<div class="row-head">{{.T.AdminTitle}}</div>
+{{if .AdminSet}}<div class="row"><span class="mark ok" aria-hidden="true">✓</span><span>{{.T.AdminSet}} · <a href="/admin/">{{.T.OpenPanel}}</a></span></div>
+{{else}}<p class="note">{{.T.AdminNote}}: <span class="mono">{{.BaseURL}}/admin</span></p>
+{{if .Error}}<p class="flash bad">{{.Error}}</p>{{end}}
+<form method="post" action="/setup/{{.Secret}}/admin" class="stack">
+<label class="field"><span>{{.T.Password}}</span><input type="password" name="password" autocomplete="new-password" minlength="10" required><small>{{.T.PasswordShort}}</small></label>
+<label class="field"><span>{{.T.PasswordRepeat}}</span><input type="password" name="repeat" autocomplete="new-password" minlength="10" required></label>
+<button type="submit" class="secondary">{{.T.SavePassword}}</button>
+</form>{{end}}
+</section>
+
+<form class="dock" method="post" action="/setup/{{.Secret}}/done">
+<button type="submit" class="primary">{{.T.Done}}</button>
+</form>
+<p class="note center">{{.T.DoneNote}} <code class="inline">tossling-server setup-link</code></p>
+<script src="{{asset "tossling.js"}}"></script>
+{{template "bottom" .}}

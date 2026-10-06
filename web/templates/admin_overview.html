@@ -1,0 +1,30 @@
+{{template "admin-top" .}}
+<header class="page-title"><h1>{{.T.NavOverview}}</h1></header>
+{{with .Overview}}
+<section class="stats">
+<div class="glass stat"><span class="stat-value">{{.Rooms}}</span><span class="stat-label">{{$.T.Rooms}}</span></div>
+<div class="glass stat"><span class="stat-value">{{.ProjectEvents}}</span><span class="stat-label">{{$.T.EventsDay}}</span></div>
+<div class="glass stat"><span class="stat-value">{{.ProjectsCount}}</span><span class="stat-label">{{$.T.ProjectsCount}}</span></div>
+<div class="glass stat"><span class="stat-value">{{.PublisherCount}}</span><span class="stat-label">{{$.T.PublishersCount}}</span></div>
+</section>
+<section class="glass">
+<div class="row-head">{{$.T.Server}}</div>
+<div class="kv"><span>{{$.T.Address}}</span><span class="mono">{{$.BaseURL}}</span></div>
+<div class="divider flat"></div>
+<div class="kv"><span>{{$.T.Version}}</span><span>{{$.Version}}</span></div>
+<div class="divider flat"></div>
+<div class="kv"><span>{{$.T.Firebase}}</span><span class="{{if $.Firebase}}good{{else}}warn-text{{end}}">{{if $.Firebase}}{{$.T.FirebaseOn}}{{else}}{{$.T.FirebaseOff}}{{end}}</span></div>
+</section>
+<section class="glass">
+<div class="row-head">{{$.T.Activity}}</div>
+<div class="kv"><span>{{$.T.LastActivity}}</span><span>{{when .RoomActivity}}</span></div>
+<p class="note pad">{{$.T.RoomsNote}}</p>
+</section>
+<section class="glass">
+<div class="row-head">{{$.T.Storage}}</div>
+<div class="kv"><span>{{$.T.Attachments}}</span><span>{{size .Attachments}}</span></div>
+<div class="divider flat"></div>
+<div class="kv"><span>{{$.T.Cache}}</span><span>{{size .CacheSize}}</span></div>
+</section>
+{{end}}
+{{template "admin-bottom" .}}

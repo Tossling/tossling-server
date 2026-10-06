@@ -1,0 +1,10 @@
+{{template "top" .}}
+<section class="hero">
+<img class="logo" src="{{asset "logo.svg"}}" width="112" height="112" alt="">
+<h1 class="large">Tossling</h1>
+<p class="lead">{{.T.Lead}}</p>
+<p class="muted">{{.T.Note}}</p>
+<p class="status"><span class="dot"></span>{{.T.Running}}</p>
+<p><a href="https://github.com/tossling/tossling-desktop">{{.T.Project}}</a></p>
+</section>
+{{template "bottom" .}}

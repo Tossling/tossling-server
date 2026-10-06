@@ -1,0 +1,41 @@
+{{define "top"}}<!doctype html>
+<html lang="{{.T.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Tossling Server</title>
+<link rel="icon" href="{{asset "logo.svg"}}" type="image/svg+xml">
+<link rel="stylesheet" href="{{asset "tossling.css"}}">
+</head>
+<body>
+<div class="blobs" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<main{{if .Wide}} class="wide"{{end}}>
+{{end}}
+
+{{define "nav"}}<nav class="nav">
+<a href="/admin/"{{if eq .Nav "overview"}} class="on" aria-current="page"{{end}}>{{.T.NavOverview}}</a>
+<a href="/admin/projects"{{if eq .Nav "projects"}} class="on" aria-current="page"{{end}}>{{.T.NavProjects}}</a>
+<a href="/admin/security"{{if eq .Nav "security"}} class="on" aria-current="page"{{end}}>{{.T.NavSecurity}}</a>
+<form method="post" action="/admin/logout" class="nav-out"><button type="submit">{{.T.Logout}}</button></form>
+</nav>
+{{if .Flash}}<p class="flash ok">{{.Flash}}</p>{{end}}
+{{if .Error}}<p class="flash bad">{{.Error}}</p>{{end}}
+{{end}}
+
+{{define "admin-top"}}{{template "top" .}}{{template "nav" .}}{{end}}
+
+{{define "admin-bottom"}}<script src="{{asset "tossling.js"}}"></script>
+{{template "bottom" .}}{{end}}
+
+{{define "bottom"}}
+<footer>Tossling Server {{.Version}} · <a href="https://github.com/tossling/tossling-server" rel="noopener">GitHub</a></footer>
+</main>
+</body>
+</html>
+{{end}}
+
+{{define "copy"}}<button type="button" class="copy" data-copy="{{.Value}}" data-copied="{{.Copied}}" aria-label="{{.Label}}" title="{{.Label}}">
+<svg class="icon-copy" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="9" height="9" rx="2"/><path d="M12 6V4.5A1.5 1.5 0 0 0 10.5 3h-6A1.5 1.5 0 0 0 3 4.5v6A1.5 1.5 0 0 0 4.5 12H6"/></svg>
+<svg class="icon-done" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5l3.5 3.5 7.5-8"/></svg>
+</button>{{end}}

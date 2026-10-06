@@ -1,0 +1,14 @@
+{{template "admin-top" .}}
+<header class="page-title">
+{{with .Project}}<h1>{{.Name}}</h1><p class="muted mono">{{.Topic}} · {{.Publisher}}</p>{{end}}
+</header>
+<section class="glass">
+<div class="step"><span class="num">1</span><div class="step-body"><div class="step-title">{{.T.TokenTitle}}</div>
+<div class="cmd"><code>{{.Token}}</code>{{template "copy" (dict "Value" .Token "Label" .T.Copy "Copied" .T.Copied)}}</div>
+<p class="note">{{.T.TokenOnce}}</p></div></div>
+<div class="divider"></div>
+<div class="step"><span class="num">2</span><div class="step-body"><div class="step-title">{{.T.Example}}</div>
+<div class="cmd"><code>{{.Command}}</code>{{template "copy" (dict "Value" .Command "Label" .T.Copy "Copied" .T.Copied)}}</div></div></div>
+</section>
+{{with .Project}}<a class="primary link-button" href="/admin/projects/{{.Topic}}">{{$.T.Back}}</a>{{end}}
+{{template "admin-bottom" .}}

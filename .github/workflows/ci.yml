@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  binary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+      - run: make vet test build smoke
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: make browser
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t tossling-server .
+      - name: Run the image
+        run: |
+          docker run -d --name tossling -p 18090:8090 -e TOSSLING_BASE_URL=http://127.0.0.1:18090 tossling-server
+          for i in $(seq 1 50); do curl -sf http://127.0.0.1:18090/v1/tossy/health && break; sleep 0.2; done
+          docker exec tossling cat /data/tossling-server.json > settings.json
+      - run: tests/smoke.sh http://127.0.0.1:18090 settings.json
+        env:
+          TOSSLING_CLI: docker exec tossling tossling-server
+      - name: New setup link
+        run: test "$(curl -s -o /dev/null -w '%{http_code}' "$(docker exec tossling tossling-server setup-link)")" = 200
+      - if: failure()
+        run: docker logs tossling
+      - name: Save the image
+        run: docker save tossling-server | gzip > tossling-server-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tossling-server-image
+          path: tossling-server-image.tar.gz
+          retention-days: 14

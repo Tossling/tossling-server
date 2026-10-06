@@ -1,0 +1,19 @@
+{{template "admin-top" .}}
+<header class="page-title"><h1>{{.T.ProjectsTitle}}</h1><p class="muted">{{.T.ProjectsNote}}</p></header>
+<section class="glass">
+{{range $i, $p := .Projects}}{{if $i}}<div class="divider flat"></div>{{end}}
+<a class="item" href="/admin/projects/{{$p.Topic}}">
+<span class="item-main"><span class="item-title">{{$p.Name}}</span><span class="item-sub mono">{{$p.Topic}} · {{if $p.Publisher}}{{$p.Publisher}}{{else if eq $p.Topic "mac" "claude"}}{{$.T.DevicesWrite}}{{else}}{{$.T.NoPublisher}}{{end}}</span></span>
+<span class="item-side">{{if $p.Events}}<span class="badge">{{$p.Events}} {{$.T.PerDay}}</span>{{end}}<span class="item-time">{{when $p.LastEvent}}</span></span>
+</a>
+{{else}}<p class="empty">{{.T.NoProjects}}</p>{{end}}
+</section>
+<form class="glass form" method="post" action="/admin/projects">
+<div class="row-head">{{.T.NewProject}}</div>
+<label class="field"><span>{{.T.Channel}}</span><input name="topic" required pattern="[A-Za-z0-9_\-]{1,64}" value="{{.Form.Get "topic"}}" autocomplete="off" spellcheck="false"><small>{{.T.ChannelHint}}</small></label>
+<label class="field"><span>{{.T.Name}}</span><input name="name" value="{{.Form.Get "name"}}" autocomplete="off"></label>
+<label class="field"><span>{{.T.Publisher}}</span><input name="publisher" list="publishers" value="{{.Form.Get "publisher"}}" autocomplete="off" spellcheck="false"><small>{{.T.PublisherHint}}</small></label>
+<datalist id="publishers">{{range .Publishers}}<option value="{{.Name}}">{{end}}</datalist>
+<button type="submit" class="primary">{{.T.Create}}</button>
+</form>
+{{template "admin-bottom" .}}

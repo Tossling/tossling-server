@@ -1,0 +1,11 @@
+Tossling Server
+Copyright 2026 the Tossling authors
+
+Tossling Server is free software under the GNU General Public License v3.0, see LICENSE.
+
+It includes ntfy (https://github.com/binwiederhier/ntfy), Copyright 2021 Philipp C. Heckel,
+used under the Apache License 2.0, see licenses/ntfy-Apache-2.0.txt. ntfy is used unmodified.
+"ntfy" is a name of its author's project; Tossling Server is not affiliated with or endorsed by it.
+
+The web pages use the Onest and JetBrains Mono fonts under the SIL Open Font License 1.1,
+see licenses/Onest-OFL.txt and licenses/JetBrainsMono-OFL.txt.

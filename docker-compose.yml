@@ -1,0 +1,10 @@
+services:
+  tossling-server:
+    image: ghcr.io/tossling/tossling-server:latest
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      TOSSLING_BASE_URL: https://tossling.example.com
+    volumes:
+      - ./data:/data
