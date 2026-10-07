@@ -115,6 +115,7 @@ func main() {
 		_ = server.Shutdown(ctx)
 		backend.stop()
 	}()
+	go service.adoptBaseURL()
 	log.Printf("tossling-server %s on %s, data in %s", version, opts.listen, opts.dataDir)
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)

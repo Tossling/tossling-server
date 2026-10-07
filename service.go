@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"net"
 	"net/http"
 	"net/netip"
@@ -160,6 +161,44 @@ func (p *projectService) subscriptions() (map[string]string, error) {
 		}
 	}
 	return names, nil
+}
+
+func (p *projectService) adoptBaseURL() {
+	if p.baseURL == "" {
+		return
+	}
+	data, err := p.request(http.MethodGet, "/v1/account", p.token, nil, nil)
+	if err != nil {
+		log.Printf("projects: %v", err)
+		return
+	}
+	var account struct {
+		Subscriptions []struct {
+			BaseURL     string  `json:"base_url"`
+			Topic       string  `json:"topic"`
+			DisplayName *string `json:"display_name"`
+		} `json:"subscriptions"`
+	}
+	if err := json.Unmarshal(data, &account); err != nil {
+		log.Printf("projects: %v", err)
+		return
+	}
+	for _, s := range account.Subscriptions {
+		if roomTopic(s.Topic) || s.BaseURL == p.baseURL {
+			continue
+		}
+		name := s.Topic
+		if s.DisplayName != nil && *s.DisplayName != "" {
+			name = *s.DisplayName
+		}
+		if err := p.subscribe(s.Topic, name); err != nil {
+			log.Printf("projects: %s stays under %s: %v", s.Topic, s.BaseURL, err)
+			continue
+		}
+		_, _ = p.request(http.MethodDelete, "/v1/account/subscription", p.token, nil,
+			map[string]string{"X-BaseURL": s.BaseURL, "X-Topic": s.Topic})
+		log.Printf("projects: %s moved from %s to %s", s.Topic, s.BaseURL, p.baseURL)
+	}
 }
 
 func (p *projectService) subscribe(topic, name string) error {
