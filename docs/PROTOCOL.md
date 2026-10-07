@@ -263,5 +263,5 @@ carries no content: the phone then fetches the room with `poll=1`.
 - Both topic prefixes are rooms; both invite topics are listened to; both API prefixes are tried.
 - Labels inside hashes and key derivation stay as they are: `tossy-device:`, `tossy-invite-topic:`,
   `tossy-invite-v1`, `tossy-rekey-v1`.
-- `src`: the apps so far treat `mac` as a computer and anything else as a phone. Clients for Windows and Linux will
-  send `windows` and `linux`, and the existing apps learn to show those as computers before such clients ship.
+- `src`: `mac`, `windows` and `linux` are computers; `android`, `ios` and any value an app does not know are phones.
+  Apps before 0.4 treat only `mac` as a computer and show the others as phones.
