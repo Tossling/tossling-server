@@ -87,16 +87,16 @@ their recent events (create, rename, send a test event, new publisher token, del
 their tokens were last used, a new setup link, the panel password, signing out everywhere). The password is set on the
 setup page or with `tossling-server admin-password`. Sessions last 30 days; sign-in attempts are limited per address.
 
-The same project operations are open to the Tossling apps with the device token: `GET /v1/tossy/projects`,
-`POST /v1/tossy/projects` (`{"topic": "…", "name": "…", "publisher": "…"}`, answers with the publisher token once) and
-`DELETE /v1/tossy/projects/<channel>`.
+The same project operations are open to the Tossling apps with the device token: `GET /v1/tossling/projects`,
+`POST /v1/tossling/projects` (`{"topic": "…", "name": "…", "publisher": "…"}`, answers with the publisher token once) and
+`DELETE /v1/tossling/projects/<channel>`.
 
 ## Instant delivery on Android
 
 The Tossling app wakes up through Firebase Cloud Messaging. Set `TOSSLING_FIREBASE_KEY_FILE` to the service account
 JSON of the Firebase project the app is built with (mount it into the container). Without it new items reach
 the phone when the app opens, unless the app keeps a connection of its own (its «Keep a connection» setting);
-`/v1/tossy/health` reports `"push": false` so the app can turn that on by itself.
+`/v1/tossling/health` reports `"push": false` so the app can turn that on by itself.
 
 ## Build and run
 
@@ -107,7 +107,7 @@ make build
 ./build/tossling-server -base-url https://tossling.example.com -data /var/lib/tossling-server
 ```
 
-On the first start the server creates the `tossy` user, its access rules and a token, and prints a link
+On the first start the server creates the device user (`tossy`, the name devices have always used), its access rules and a token, and prints a link
 to the setup page; `tossling-server setup-link` prints a new one. `-listen` sets the address (default `:8090`); `-behind-proxy` takes the client
 address from `X-Forwarded-For` when a reverse proxy stands in front. Every flag can also come from the
 environment: `TOSSLING_BASE_URL`, `TOSSLING_DATA`, `TOSSLING_LISTEN`, `TOSSLING_BEHIND_PROXY=true`, `TOSSLING_FIREBASE_KEY_FILE`.
@@ -122,8 +122,9 @@ placeholder files ntfy expects instead of its web app and docs; nothing else is 
 ## Upgrading from Tossy Server
 
 The project was called Tossy before 0.2. A server from that time upgrades in place: `TOSSY_*` variables are still read,
-the settings stay in `tossy-server.json`, and paired devices keep working. Protocol names keep the old prefix on
-purpose (`/v1/tossy/…`, the `tossy` user, `tossy-*` channels): changing them would break devices already in use.
+the settings stay in `tossy-server.json`, and paired devices keep working. Since 0.3 the API lives at `/v1/tossling/…` and
+new rooms use `tossling-*` channels; the old `/v1/tossy/…` path and `tossy-*` channels keep working for devices that
+still use them.
 
 ## Reporting a vulnerability
 

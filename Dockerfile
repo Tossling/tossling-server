@@ -19,5 +19,5 @@ COPY --from=build /src/licenses /usr/share/doc/tossling-server/licenses
 ENV TOSSLING_DATA=/data TOSSLING_LISTEN=:8090
 VOLUME /data
 EXPOSE 8090
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD wget -qO- http://127.0.0.1:8090/v1/tossy/health >/dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD wget -qO- http://127.0.0.1:8090/v1/tossling/health >/dev/null || exit 1
 ENTRYPOINT ["tossling-server"]

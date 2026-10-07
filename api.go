@@ -36,7 +36,13 @@ func apiError(w http.ResponseWriter, status int, message string) {
 }
 
 func (a *adminPanel) apiRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /v1/tossy/projects", a.deviceOnly(func(w http.ResponseWriter, r *http.Request) {
+	for _, prefix := range apiPrefixes {
+		a.apiRoutesAt(mux, prefix)
+	}
+}
+
+func (a *adminPanel) apiRoutesAt(mux *http.ServeMux, prefix string) {
+	mux.HandleFunc("GET "+prefix+"/projects", a.deviceOnly(func(w http.ResponseWriter, r *http.Request) {
 		projects, err := a.service.projects()
 		if err != nil {
 			apiError(w, http.StatusInternalServerError, err.Error())
@@ -48,7 +54,7 @@ func (a *adminPanel) apiRoutes(mux *http.ServeMux) {
 		}
 		writeJSON(w, http.StatusOK, out)
 	}))
-	mux.HandleFunc("POST /v1/tossy/projects", a.deviceOnly(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST "+prefix+"/projects", a.deviceOnly(func(w http.ResponseWriter, r *http.Request) {
 		var req apiProject
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil {
 			apiError(w, http.StatusBadRequest, "invalid JSON")
@@ -71,7 +77,7 @@ func (a *adminPanel) apiRoutes(mux *http.ServeMux) {
 		}
 		writeJSON(w, http.StatusCreated, out)
 	}))
-	mux.HandleFunc("DELETE /v1/tossy/projects/{topic}", a.deviceOnly(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("DELETE "+prefix+"/projects/{topic}", a.deviceOnly(func(w http.ResponseWriter, r *http.Request) {
 		topic := r.PathValue("topic")
 		if _, err := a.service.project(topic); err != nil {
 			apiError(w, http.StatusNotFound, err.Error())

@@ -12,7 +12,7 @@ unless you prefer otherwise.
 ## Scope
 
 - the HTTP layer of this repository: the setup page, the web panel (sign-in, sessions, CSRF, lockout), the
-  `/v1/tossy` API, client IP handling and rate limits;
+  `/v1/tossling` API, client IP handling and rate limits;
 - the access rules it provisions in the embedded ntfy: a device or a publisher token reaching a channel it should not;
 - the Docker image and its defaults.
 

@@ -1,6 +1,6 @@
 NTFY_VERSION := $(shell awk '{ for (i = 1; i < NF; i++) if ($$i == "heckel.io/ntfy/v2" && $$(i + 1) ~ /^v/) { print $$(i + 1); exit } }' go.mod)
 NTFY_DIR := third_party/ntfy
-NTFY_STAMP := $(NTFY_DIR)/.tossy-$(NTFY_VERSION)
+NTFY_STAMP := $(NTFY_DIR)/.tossling-$(NTFY_VERSION)
 TAGS := sqlite_omit_load_extension,osusergo,netgo
 VERSION := $(shell cat VERSION)
 
@@ -20,7 +20,7 @@ test: $(NTFY_STAMP)
 smoke: build
 	@dir=$$(mktemp -d); port=$$((20000 + RANDOM % 20000)); \
 	./build/tossling-server -listen 127.0.0.1:$$port -data "$$dir/data" -base-url http://127.0.0.1:$$port > "$$dir/log" 2>&1 & pid=$$!; \
-	for i in $$(seq 1 50); do curl -sf http://127.0.0.1:$$port/v1/tossy/health >/dev/null && break; sleep 0.1; done; \
+	for i in $$(seq 1 50); do curl -sf http://127.0.0.1:$$port/v1/tossling/health >/dev/null && break; sleep 0.1; done; \
 	TOSSLING_CLI="env TOSSLING_DATA=$$dir/data TOSSLING_BASE_URL=http://127.0.0.1:$$port TOSSLING_LISTEN=127.0.0.1:$$port ./build/tossling-server" \
 	tests/smoke.sh http://127.0.0.1:$$port "$$dir/data/tossling-server.json"; rc=$$?; \
 	link=$$(./build/tossling-server setup-link -data "$$dir/data" -base-url http://127.0.0.1:$$port); \
@@ -41,7 +41,7 @@ CHROME ?= $(shell command -v google-chrome || command -v chromium || echo "/Appl
 browser: build
 	@dir=$$(mktemp -d); port=$$((20000 + RANDOM % 20000)); \
 	./build/tossling-server -listen 127.0.0.1:$$port -data "$$dir/data" -base-url http://127.0.0.1:$$port > "$$dir/log" 2>&1 & pid=$$!; \
-	for i in $$(seq 1 50); do curl -sf http://127.0.0.1:$$port/v1/tossy/health >/dev/null && break; sleep 0.1; done; \
+	for i in $$(seq 1 50); do curl -sf http://127.0.0.1:$$port/v1/tossling/health >/dev/null && break; sleep 0.1; done; \
 	secret=$$(sed -n 's/.*"setup_secret": *"\([^"]*\)".*/\1/p' "$$dir/data/tossling-server.json"); \
 	node tests/browser.mjs "$(CHROME)" "http://127.0.0.1:$$port/setup/$$secret"; rc=$$?; \
 	kill $$pid; wait $$pid 2>/dev/null; [ $$rc -eq 0 ] || cat "$$dir/log"; rm -rf "$$dir"; exit $$rc

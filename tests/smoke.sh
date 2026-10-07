@@ -22,26 +22,30 @@ check() {
 
 check "own page" 200 "$(code "$URL/")"
 check "footer links the source" 1 "$(curl -s "$URL/" | grep -c 'github.com/tossling/tossling-server')"
-check "own health" 200 "$(code "$URL/v1/tossy/health")"
-check "health tells whether push works" 1 "$(curl -s "$URL/v1/tossy/health" | grep -c '"push":false')"
+check "own health" 200 "$(code "$URL/v1/tossling/health")"
+check "health tells whether push works" 1 "$(curl -s "$URL/v1/tossling/health" | grep -c '"push":false')"
+check "health names the server" 1 "$(curl -s "$URL/v1/tossling/health" | grep -c '"server":"tossling-server"')"
+check "old api path still answers" 200 "$(code "$URL/v1/tossy/health")"
 check "ntfy health" 200 "$(code "$URL/v1/health")"
 check "token belongs to tossy" '"tossy"' "$(curl -s -H "$AUTH" "$URL/v1/account" | grep -o '"username":"[a-z]*"' | cut -d: -f2)"
-check "publish to a room" 200 "$(code -H "$AUTH" -d hi "$URL/tossy-smoke")"
-check "anonymous publish to a room" 403 "$(code -d hi "$URL/tossy-smoke")"
-check "publish outside tossy-*" 403 "$(code -H "$AUTH" -d hi "$URL/other")"
+check "publish to a room" 200 "$(code -H "$AUTH" -d hi "$URL/tossling-smoke")"
+check "anonymous publish to a room" 403 "$(code -d hi "$URL/tossling-smoke")"
+check "publish to an old room" 200 "$(code -H "$AUTH" -d hi "$URL/tossy-smoke")"
+check "publish outside room channels" 403 "$(code -H "$AUTH" -d hi "$URL/other")"
 check "publish to mac" 200 "$(code -H "$AUTH" -d hi "$URL/mac")"
 check "JSON publish to root" 200 "$(code -H "$AUTH" -H 'Content-Type: application/json' -d '{"topic":"claude","message":"m"}' "$URL/")"
-check "anonymous read of an invite" 200 "$(code "$URL/tossy-inv-SMOKE/json?poll=1")"
-check "anonymous write of an invite" 403 "$(code -d x "$URL/tossy-inv-SMOKE")"
-check "uncached invite" 200 "$(code -H "$AUTH" -H 'X-Cache: no' -d x "$URL/tossy-inv-SMOKE")"
+check "anonymous read of an invite" 200 "$(code "$URL/tossling-inv-SMOKE/json?poll=1")"
+check "anonymous read of an old invite" 200 "$(code "$URL/tossy-inv-SMOKE/json?poll=1")"
+check "anonymous write of an invite" 403 "$(code -d x "$URL/tossling-inv-SMOKE")"
+check "uncached invite" 200 "$(code -H "$AUTH" -H 'X-Cache: no' -d x "$URL/tossling-inv-SMOKE")"
 
 head -c 5000000 /dev/urandom > "$TMP/file.bin"
-reply=$(curl -s -H "$AUTH" -T "$TMP/file.bin" -H 'X-Filename: file.bin' "$URL/tossy-smoke")
+reply=$(curl -s -H "$AUTH" -T "$TMP/file.bin" -H 'X-Filename: file.bin' "$URL/tossling-smoke")
 file_url=$(echo "$reply" | sed -n 's/.*"url":"\([^"]*\)".*/\1/p')
 check "attachment link uses the base URL" "$URL" "${file_url%/file/*}"
 curl -s -H "$AUTH" -o "$TMP/back.bin" "$URL/file/${file_url##*/file/}"
 check "attachment round trip" same "$(cmp -s "$TMP/file.bin" "$TMP/back.bin" && echo same || echo different)"
-check "poll a room" 2 "$(curl -s -H "$AUTH" "$URL/tossy-smoke/json?poll=1&since=all" | grep -c '"event":"message"')"
+check "poll a room" 2 "$(curl -s -H "$AUTH" "$URL/tossling-smoke/json?poll=1&since=all" | grep -c '"event":"message"')"
 
 new=$(curl -s -H "$AUTH" -X POST -H 'Content-Type: application/json' -d '{"label":"smoke"}' "$URL/v1/account/token" | sed -n 's/.*"token":"\(tk_[A-Za-z0-9]*\)".*/\1/p')
 check "new account token works" 200 "$(code -H "Authorization: Bearer $new" "$URL/v1/account")"
@@ -59,12 +63,13 @@ if [ -n "${TOSSLING_CLI:-}" ]; then
     check "project token printed" 1 "$([ -n "$PUB" ] && echo 1 || echo 0)"
     check "project token writes its channel" 200 "$(code -H "Authorization: Bearer $PUB" -d built "$URL/smoke-alerts")"
     check "project token cannot read" 403 "$(code -H "Authorization: Bearer $PUB" "$URL/smoke-alerts/json?poll=1")"
-    check "project token cannot write a room" 403 "$(code -H "Authorization: Bearer $PUB" -d x "$URL/tossy-smoke")"
+    check "project token cannot write a room" 403 "$(code -H "Authorization: Bearer $PUB" -d x "$URL/tossling-smoke")"
     check "project token cannot write other channels" 403 "$(code -H "Authorization: Bearer $PUB" -d x "$URL/mac")"
     check "devices read the project" 1 "$(curl -s -H "$AUTH" "$URL/smoke-alerts/json?poll=1&since=all" | grep -c '"event":"message"')"
     check "project reaches the devices" 1 "$(curl -s -H "$AUTH" "$URL/v1/account" | grep -c '"topic":"smoke-alerts","display_name":"Smoke Alerts"')"
     check "project list" 1 "$($TOSSLING_CLI project list | grep -c '^smoke-alerts')"
-    check "room prefix is not a project" 1 "$($TOSSLING_CLI project add tossy-nope >/dev/null 2>&1 && echo 0 || echo 1)"
+    check "room prefix is not a project" 1 "$($TOSSLING_CLI project add tossling-nope >/dev/null 2>&1 && echo 0 || echo 1)"
+    check "old room prefix is not a project" 1 "$($TOSSLING_CLI project add tossy-nope >/dev/null 2>&1 && echo 0 || echo 1)"
     $TOSSLING_CLI project add smoke-more "Smoke More" --publisher smoke-alerts > "$TMP/more.txt"
     check "shared publisher gets no new token" 0 "$(grep -c 'tk_' "$TMP/more.txt")"
     check "shared publisher writes the second channel" 200 "$(code -H "Authorization: Bearer $PUB" -d x "$URL/smoke-more")"
@@ -118,12 +123,12 @@ check "new token publishes" 200 "$(code -H "Authorization: Bearer $NT" -d x "$UR
 check "delete from the panel" 303 "$(code -b "$JAR" -H "$O" -X POST "$URL/admin/projects/panel-alerts/delete")"
 check "deleted project token refused" 401 "$(code -H "Authorization: Bearer $NT" -d x "$URL/panel-alerts")"
 check "security page" 200 "$(code -b "$JAR" "$URL/admin/security")"
-check "api needs a device token" 401 "$(code "$URL/v1/tossy/projects")"
-check "api lists projects" 1 "$(curl -s -H "$AUTH" "$URL/v1/tossy/projects" | grep -c '"topic":"mac"\|"topic":"claude"\|^\[')"
-AT=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' -d '{"topic":"api-alerts","name":"API"}' "$URL/v1/tossy/projects" | grep -o 'tk_[A-Za-z0-9]*' | head -1)
+check "api needs a device token" 401 "$(code "$URL/v1/tossling/projects")"
+check "api lists projects" 1 "$(curl -s -H "$AUTH" "$URL/v1/tossling/projects" | grep -c '"topic":"mac"\|"topic":"claude"\|^\[')"
+AT=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' -d '{"topic":"api-alerts","name":"API"}' "$URL/v1/tossling/projects" | grep -o 'tk_[A-Za-z0-9]*' | head -1)
 check "api creates a project with a token" 200 "$(code -H "Authorization: Bearer $AT" -d x "$URL/api-alerts")"
-check "api deletes a project" 204 "$(code -H "$AUTH" -X DELETE "$URL/v1/tossy/projects/api-alerts")"
-check "project tokens cannot use the api" 401 "$(code -H "Authorization: Bearer $AT" "$URL/v1/tossy/projects")"
+check "api deletes a project" 204 "$(code -H "$AUTH" -X DELETE "$URL/v1/tossling/projects/api-alerts")"
+check "project tokens cannot use the api" 401 "$(code -H "Authorization: Bearer $AT" "$URL/v1/tossling/projects")"
 
 check "cross-site finish refused" 403 "$(code -X POST "$URL/setup/$SECRET/done")"
 check "finish the setup" 303 "$(code -H "Origin: $URL" -X POST "$URL/setup/$SECRET/done")"
@@ -137,7 +142,7 @@ check "sign-in attempts are limited" 429 "$(code -H "$O" -d password=smoke-passw
 
 limited=0
 for i in $(seq 1 90); do
-    c=$(code -H "X-Tossy-Client-Ip: 10.1.0.$i" -H "X-Forwarded-For: 10.2.0.$i" "$URL/tossy-inv-SMOKE/json?poll=1")
+    c=$(code -H "X-Tossling-Client-Ip: 10.1.0.$i" -H "X-Forwarded-For: 10.2.0.$i" "$URL/tossling-inv-SMOKE/json?poll=1")
     [ "$c" = 429 ] && limited=1 && break
 done
 check "spoofed client addresses share one rate limit" 1 "$limited"

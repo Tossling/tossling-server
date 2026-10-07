@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 const [chrome, url] = process.argv.slice(2);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const profile = mkdtempSync(join(tmpdir(), "tossy-browser-"));
+const profile = mkdtempSync(join(tmpdir(), "tossling-browser-"));
 const port = 19000 + Math.floor(Math.random() * 1000);
 const browser = spawn(chrome, ["--headless=new", "--disable-gpu", "--no-sandbox", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
 let failed = 0;

@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	clientIPHeader = "X-Tossy-Client-Ip"
+	clientIPHeader = "X-Tossling-Client-Ip"
 	internalIP     = "192.0.2.1"
 )
 
@@ -47,12 +47,14 @@ func startNtfy(opts options, settings *Settings) (*ntfyBackend, error) {
 	conf.AuthUsers = []*user.User{{Name: deviceUser, Hash: settings.PasswordHash, Role: user.RoleUser, Provisioned: true}}
 	conf.AuthAccess = map[string][]*user.Grant{
 		deviceUser: {
+			{TopicPattern: "tossling-*", Permission: user.PermissionReadWrite, Provisioned: true},
 			{TopicPattern: "tossy-*", Permission: user.PermissionReadWrite, Provisioned: true},
 			{TopicPattern: "mac", Permission: user.PermissionReadWrite, Provisioned: true},
 			{TopicPattern: "claude", Permission: user.PermissionReadWrite, Provisioned: true},
 			{TopicPattern: "*", Permission: user.PermissionRead, Provisioned: true},
 		},
 		user.Everyone: {
+			{TopicPattern: "tossling-inv-*", Permission: user.PermissionRead, Provisioned: true},
 			{TopicPattern: "tossy-inv-*", Permission: user.PermissionRead, Provisioned: true},
 		},
 	}

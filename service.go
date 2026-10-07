@@ -83,9 +83,15 @@ func newServiceOverHTTP(manager *user.Manager, opts options, token string) *proj
 		ntfyURL: "http://" + net.JoinHostPort(host, port), baseURL: opts.baseURL, token: token, dataDir: opts.dataDir}
 }
 
+var apiPrefixes = []string{"/v1/tossling", "/v1/tossy"}
+
+func roomTopic(topic string) bool {
+	return strings.HasPrefix(topic, "tossling-") || strings.HasPrefix(topic, "tossy-")
+}
+
 func checkProjectTopic(topic string) error {
-	if !projectTopic.MatchString(topic) || strings.HasPrefix(topic, "tossy-") || topic == "setup" {
-		return fmt.Errorf("%q cannot be a project channel: use letters, digits, - and _, not starting with tossy-", topic)
+	if !projectTopic.MatchString(topic) || roomTopic(topic) || topic == "setup" {
+		return fmt.Errorf("%q cannot be a project channel: use letters, digits, - and _, not starting with tossling- or tossy-", topic)
 	}
 	return nil
 }
@@ -145,7 +151,7 @@ func (p *projectService) subscriptions() (map[string]string, error) {
 	}
 	names := map[string]string{}
 	for _, s := range account.Subscriptions {
-		if strings.HasPrefix(s.Topic, "tossy-") {
+		if roomTopic(s.Topic) {
 			continue
 		}
 		names[s.Topic] = s.Topic
@@ -419,7 +425,7 @@ func (p *projectService) eventStats() map[string]topicStats {
 		return stats
 	}
 	defer db.Close()
-	rows, err := db.Query("SELECT topic, COUNT(*), MAX(time) FROM messages WHERE event = 'message' AND time >= ? AND topic NOT LIKE 'tossy-%' GROUP BY topic",
+	rows, err := db.Query("SELECT topic, COUNT(*), MAX(time) FROM messages WHERE event = 'message' AND time >= ? AND topic NOT LIKE 'tossy-%' AND topic NOT LIKE 'tossling-%' GROUP BY topic",
 		time.Now().Add(-24*time.Hour).Unix())
 	if err != nil {
 		return stats
@@ -479,11 +485,11 @@ func (p *projectService) overview() overview {
 	if db, err := p.cache(); err == nil {
 		defer db.Close()
 		var last sql.NullInt64
-		_ = db.QueryRow("SELECT COUNT(DISTINCT topic), COUNT(*), MAX(time) FROM messages WHERE topic LIKE 'tossy-%' AND topic NOT LIKE 'tossy-inv-%'").Scan(&o.Rooms, &o.RoomMessages, &last)
+		_ = db.QueryRow("SELECT COUNT(DISTINCT topic), COUNT(*), MAX(time) FROM messages WHERE (topic LIKE 'tossy-%' OR topic LIKE 'tossling-%') AND topic NOT LIKE 'tossy-inv-%' AND topic NOT LIKE 'tossling-inv-%'").Scan(&o.Rooms, &o.RoomMessages, &last)
 		if last.Valid {
 			o.RoomActivity = time.Unix(last.Int64, 0)
 		}
-		_ = db.QueryRow("SELECT COUNT(*) FROM messages WHERE event = 'message' AND topic NOT LIKE 'tossy-%' AND time >= ?", time.Now().Add(-24*time.Hour).Unix()).Scan(&o.ProjectEvents)
+		_ = db.QueryRow("SELECT COUNT(*) FROM messages WHERE event = 'message' AND topic NOT LIKE 'tossy-%' AND topic NOT LIKE 'tossling-%' AND time >= ?", time.Now().Add(-24*time.Hour).Unix()).Scan(&o.ProjectEvents)
 	}
 	_ = filepath.WalkDir(filepath.Join(p.dataDir, "attachments"), func(_ string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {

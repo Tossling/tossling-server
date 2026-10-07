@@ -165,10 +165,12 @@ func newFrontend(socket string, opts options, store *settingsStore, service *pro
 		log.Print("setup finished, the setup link no longer works")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
-	mux.HandleFunc("GET /v1/tossy/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"server": "tossy-server", "version": version, "push": opts.firebaseKey != ""})
-	})
+	for _, prefix := range apiPrefixes {
+		mux.HandleFunc("GET "+prefix+"/health", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"server": "tossling-server", "version": version, "push": opts.firebaseKey != ""})
+		})
+	}
 	panel.routes(mux)
 	panel.apiRoutes(mux)
 	mux.Handle("/", proxy)

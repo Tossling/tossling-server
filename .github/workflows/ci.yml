@@ -34,7 +34,7 @@ jobs:
       - name: Run the image
         run: |
           docker run -d --name tossling -p 18090:8090 -e TOSSLING_BASE_URL=http://127.0.0.1:18090 tossling-server
-          for i in $(seq 1 50); do curl -sf http://127.0.0.1:18090/v1/tossy/health && break; sleep 0.2; done
+          for i in $(seq 1 50); do curl -sf http://127.0.0.1:18090/v1/tossling/health && break; sleep 0.2; done
           docker exec tossling cat /data/tossling-server.json > settings.json
       - run: tests/smoke.sh http://127.0.0.1:18090 settings.json
         env:
@@ -48,7 +48,7 @@ jobs:
           docker buildx build --platform linux/arm64 --cache-from type=gha --cache-to type=gha,mode=max --load -t tossling-server:arm64 .
           docker run -d --name tossling-arm64 --platform linux/arm64 -p 18091:8090 -e TOSSLING_BASE_URL=http://127.0.0.1:18091 tossling-server:arm64
           docker exec tossling-arm64 uname -m | grep -qx aarch64
-          for i in $(seq 1 100); do curl -sf http://127.0.0.1:18091/v1/tossy/health && exit 0; sleep 0.2; done
+          for i in $(seq 1 100); do curl -sf http://127.0.0.1:18091/v1/tossling/health && exit 0; sleep 0.2; done
           docker logs tossling-arm64; exit 1
       - if: failure()
         run: docker logs tossling

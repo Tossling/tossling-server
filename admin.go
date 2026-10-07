@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	sessionCookie = "tossy_admin"
+	sessionCookie = "tossling_admin"
 	sessionTTL    = 30 * 24 * time.Hour
 	loginAttempts = 5
 	loginLockout  = 15 * time.Minute
@@ -76,7 +76,7 @@ func newAdminPanel(store *settingsStore, service *projectService, opts options) 
 
 func (a *adminPanel) sign(key string, expires int64) string {
 	mac := hmac.New(sha256.New, []byte(key))
-	mac.Write([]byte("tossy-admin:" + strconv.FormatInt(expires, 10)))
+	mac.Write([]byte("tossling-admin:" + strconv.FormatInt(expires, 10)))
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
