@@ -25,6 +25,7 @@ check "footer links the source" 1 "$(curl -s "$URL/" | grep -c 'github.com/tossl
 check "own health" 200 "$(code "$URL/v1/tossling/health")"
 check "health tells whether push works" 1 "$(curl -s "$URL/v1/tossling/health" | grep -c '"push":false')"
 check "health names the server" 1 "$(curl -s "$URL/v1/tossling/health" | grep -c '"server":"tossling-server"')"
+check "health gives the main address" 1 "$(curl -s "$URL/v1/tossling/health" | grep -c "\"url\":\"$URL\"")"
 check "old api path still answers" 200 "$(code "$URL/v1/tossy/health")"
 check "ntfy health" 200 "$(code "$URL/v1/health")"
 check "token belongs to tossy" '"tossy"' "$(curl -s -H "$AUTH" "$URL/v1/account" | grep -o '"username":"[a-z]*"' | cut -d: -f2)"

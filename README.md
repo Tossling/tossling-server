@@ -98,6 +98,10 @@ JSON of the Firebase project the app is built with (mount it into the container)
 the phone when the app opens, unless the app keeps a connection of its own (its «Keep a connection» setting);
 `/v1/tossling/health` reports `"push": false` so the app can turn that on by itself.
 
+The health answer also carries `url`, the address from `-base-url`. Apps that reach the server under another
+name (an old domain) check that the new address answers with the same token and move there by themselves, so a
+server can change its domain: point both names at it, set the new `-base-url`, and drop the old name later.
+
 ## Build and run
 
 Go and a C compiler (for SQLite) are needed.
