@@ -26,6 +26,7 @@ It relays encrypted messages between the devices of a room and keeps attachments
 Tossling Server is [ntfy](https://github.com/binwiederhier/ntfy) inside, unmodified and embedded as a Go
 library, with a Tossling layer in front: a single binary that sets itself up on the first start, its own
 web page, and the access rules Tossling needs. Tossling apps and anything that publishes to ntfy keep working.
+What the apps send to each other, with test vectors for a new client, is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 Status: early, in daily use by the author. Expect changes before 1.0.
 
