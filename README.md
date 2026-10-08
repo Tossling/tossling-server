@@ -115,7 +115,8 @@ make build
 On the first start the server creates the device user (`tossy`, the name devices have always used), its access rules and a token, and prints a link
 to the setup page; `tossling-server setup-link` prints a new one. `-listen` sets the address (default `:8090`); `-behind-proxy` takes the client
 address from `X-Forwarded-For` when a reverse proxy stands in front. Every flag can also come from the
-environment: `TOSSLING_BASE_URL`, `TOSSLING_DATA`, `TOSSLING_LISTEN`, `TOSSLING_BEHIND_PROXY=true`, `TOSSLING_FIREBASE_KEY_FILE`.
+environment: `TOSSLING_BASE_URL`, `TOSSLING_DATA`, `TOSSLING_LISTEN`, `TOSSLING_BEHIND_PROXY=true`, `TOSSLING_FIREBASE_KEY_FILE`, `TOSSLING_DEMO=true`.
+`-demo` is for a public demo server, see [demo/](demo/README.md).
 Only one server may use a data directory at a time.
 
 `make smoke` builds the server, starts it on a free port with empty data and checks the protocol

@@ -7,6 +7,7 @@ services:
     environment:
       TOSSLING_BASE_URL: https://demo.tossling.example.com
       TOSSLING_BEHIND_PROXY: "true"
+      TOSSLING_DEMO: "true"
     volumes:
       - ./server:/data
 
@@ -15,6 +16,8 @@ services:
     restart: unless-stopped
     depends_on:
       - tossling-server
+    ports:
+      - "8093:8080"
     environment:
       TOSSLING_SERVER: http://tossling-server:8090
       TOSSLING_SETTINGS: /server/tossling-server.json

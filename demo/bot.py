@@ -1,12 +1,15 @@
 import base64
+import html
+import io
 import json
 import os
+import socket
 import sys
 import threading
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
@@ -21,10 +24,20 @@ NAME = os.environ.get("DEMO_NAME", "Demo computer")
 IMAGE = os.environ.get("DEMO_IMAGE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample.png"))
 PROJECT = os.environ.get("DEMO_PROJECT", "demo")
 PROJECT_NAME = os.environ.get("DEMO_PROJECT_NAME", "Demo project")
+PORT = int(os.environ.get("DEMO_PORT", "8080"))
+LIFETIME = int(os.environ.get("DEMO_MINUTES", "60")) * 60
+UNUSED = 10 * 60
+MAX_ROOMS = int(os.environ.get("DEMO_MAX_ROOMS", "200"))
+ROOMS_PER_ADDRESS = int(os.environ.get("DEMO_ROOMS_PER_HOUR", "10"))
 REPLIES_PER_MINUTE = 12
 
-lock = threading.Lock()
+lock = threading.RLock()
+changed = threading.Event()
 replies = {}
+requests_by_address = {}
+seen_events = []
+streaming = {}
+state = {}
 
 
 def log(*parts):
@@ -43,49 +56,67 @@ def b64(data):
     return base64.b64encode(data).decode()
 
 
-def load():
-    with open(STATE) as f:
-        return json.load(f)
-
-
-def save(state):
-    tmp = STATE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(state, f, indent=1, sort_keys=True)
-    os.replace(tmp, STATE)
+def save():
+    with lock:
+        tmp = STATE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(state, f, indent=1, sort_keys=True)
+        os.replace(tmp, STATE)
 
 
 def setup():
+    global state
     if os.path.exists(STATE):
-        return load()
-    prefix = "tossling-" if json.load(request("/v1/tossling/health")).get("server") == "tossling-server" else "tossy-"
-    private = X25519PrivateKey.generate()
-    state = {
-        "id": os.urandom(8).hex(),
-        "room": prefix + os.urandom(12).hex(),
-        "key": b64(os.urandom(32)),
-        "private": b64(private.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())),
-        "pk": b64(private.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)),
-        "since": "1m",
-    }
-    answer = json.load(request(
-        "/v1/tossling/projects",
-        data=json.dumps({"topic": PROJECT, "name": PROJECT_NAME, "publisher": PROJECT}).encode(),
-        method="POST",
-        headers={"Content-Type": "application/json"},
-    ))
-    state["publisher"] = answer.get("token", "")
+        with open(STATE) as f:
+            state = json.load(f)
+    if "rooms" not in state:
+        state = {key: state[key] for key in ("publisher",) if key in state}
+        private = X25519PrivateKey.generate()
+        state.update({
+            "id": os.urandom(8).hex(),
+            "private": b64(private.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())),
+            "pk": b64(private.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)),
+            "rooms": {},
+        })
+    state.setdefault("prefix", "tossling-" if json.load(request("/v1/tossling/health")).get("server") == "tossling-server" else "tossy-")
+    if not state.get("publisher"):
+        answer = json.load(request(
+            "/v1/tossling/projects",
+            data=json.dumps({"topic": PROJECT, "name": PROJECT_NAME, "publisher": PROJECT}).encode(),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        ))
+        state["publisher"] = answer.get("token", "")
     os.makedirs(os.path.dirname(os.path.abspath(STATE)), exist_ok=True)
-    save(state)
-    log("new room", state["room"], "project", PROJECT)
-    return state
+    save()
 
 
-def pairing_code(state):
-    return json.dumps({
-        "id": state["id"], "k": state["key"], "n": NAME, "o": state["id"], "pk": state["pk"],
-        "r": state["room"], "s": PUBLIC_URL, "t": TOKEN, "v": 2,
+def new_room():
+    room = {"topic": state["prefix"] + os.urandom(12).hex(), "key": b64(os.urandom(32)), "created": time.time(), "devices": []}
+    with lock:
+        state["rooms"][room["topic"]] = room
+        save()
+    interrupt()
+    code = json.dumps({
+        "id": state["id"], "k": room["key"], "n": NAME, "o": state["id"], "pk": state["pk"],
+        "r": room["topic"], "s": PUBLIC_URL, "t": TOKEN, "v": 2,
     }, sort_keys=True, separators=(",", ":"))
+    log("room", room["topic"])
+    return {
+        "code": code,
+        "link": "tossling://join?code=" + base64.urlsafe_b64encode(code.encode()).decode().rstrip("="),
+        "expires": int(room["created"] + LIFETIME),
+    }
+
+
+def interrupt():
+    changed.set()
+    response = streaming.get("response")
+    if response is not None:
+        try:
+            response.fp.raw._sock.shutdown(socket.SHUT_RDWR)
+        except Exception:
+            pass
 
 
 def seal(key, plain):
@@ -97,136 +128,235 @@ def open_sealed(key, sealed):
     return AESGCM(key).decrypt(sealed[:12], sealed[12:], None)
 
 
-def envelope(state, meta):
+def envelope(room, meta):
     meta = {"src": "linux", "n": NAME, "id": state["id"], "m": "text/plain", **meta}
-    return b64(seal(base64.b64decode(state["key"]), json.dumps(meta, sort_keys=True).encode()))
+    return b64(seal(base64.b64decode(room["key"]), json.dumps(meta, sort_keys=True).encode()))
 
 
-def publish(state, meta):
-    request("/" + state["room"], data=envelope(state, meta).encode(), method="POST", headers={"X-Priority": "4"})
+def publish(room, meta):
+    request("/" + room["topic"], data=envelope(room, meta).encode(), method="POST", headers={"X-Priority": "4"})
 
 
-def say(state, text, to):
-    publish(state, {"k": "text", "v": text, "to": [to]})
+def say(room, text, to):
+    publish(room, {"k": "text", "v": text, "to": [to]})
 
 
-def hello(state, to=None):
-    meta = {"k": "hello", "pk": state["pk"]}
-    if to:
-        meta["to"] = [to]
-    publish(state, meta)
-
-
-def send_image(state, to):
+def send_image(room, to):
     with open(IMAGE, "rb") as f:
-        body = seal(base64.b64decode(state["key"]), f.read())
+        body = seal(base64.b64decode(room["key"]), f.read())
     request(
-        "/" + state["room"], data=body, method="PUT",
-        headers={"X-Message": envelope(state, {"k": "image", "m": "image/png", "to": [to]}), "X-Filename": "clip.bin", "X-Priority": "4"},
+        "/" + room["topic"], data=body, method="PUT",
+        headers={"X-Message": envelope(room, {"k": "image", "m": "image/png", "to": [to]}), "X-Filename": "clip.bin", "X-Priority": "4"},
         timeout=120,
     )
 
 
-def alert(state, title, message, priority=3, tags="white_check_mark"):
-    if not state.get("publisher"):
-        return
-    request(
-        "/" + PROJECT, data=message.encode(), method="POST", token=state["publisher"],
-        headers={"Title": title, "Priority": str(priority), "Tags": tags},
-    )
+def alert(title, message):
+    with lock:
+        if not state.get("publisher") or time.time() - streaming.get("alerted", 0) < 60:
+            return False
+        streaming["alerted"] = time.time()
+    request("/" + PROJECT, data=message.encode(), method="POST", token=state["publisher"], headers={"Title": title, "Priority": "3", "Tags": "white_check_mark"})
+    return True
 
 
 def allowed(sender):
     now = time.time()
     with lock:
         recent = [t for t in replies.get(sender, []) if now - t < 60]
-        if len(recent) >= REPLIES_PER_MINUTE:
-            replies[sender] = recent
-            return False
-        replies[sender] = recent + [now]
-        return True
+        replies[sender] = recent + ([now] if len(recent) < REPLIES_PER_MINUTE else [])
+        return len(recent) < REPLIES_PER_MINUTE
 
 
 def size_label(size):
-    if size >= 1 << 20:
-        return f"{size / (1 << 20):.1f} MB"
-    return f"{max(1, round(size / 1024))} KB"
+    return f"{size / (1 << 20):.1f} MB" if size >= 1 << 20 else f"{max(1, round(size / 1024))} KB"
 
 
-def welcome(state, sender, name):
+def welcome(room, sender, name):
+    minutes = max(1, round((room["created"] + LIFETIME - time.time()) / 60))
     time.sleep(1.5)
-    say(state, f"Hi {name}! This is a demo computer in a shared demo room. Copy some text on your phone and tap To Computer, I will answer.", sender)
+    say(room, f"Hi {name}! This is a demo computer, and this room is yours for {minutes} minutes. Copy some text on your phone and tap To Computer, I will answer.", sender)
     time.sleep(2)
-    send_image(state, sender)
+    send_image(room, sender)
     time.sleep(2)
-    alert(state, "Deploy finished", "The demo project sends notifications like this one. Real projects are your servers, builds and scripts.")
+    alert("Deploy finished", "The demo project sends notifications like this one. Real projects are your servers, builds and scripts.")
 
 
-def handle(state, event):
+def handle(room, event):
     try:
-        meta = json.loads(open_sealed(base64.b64decode(state["key"]), base64.b64decode(event["message"])))
+        meta = json.loads(open_sealed(base64.b64decode(room["key"]), base64.b64decode(event["message"])))
     except Exception:
         return
     sender = meta.get("id")
-    if not sender or sender == state["id"]:
-        return
-    if "to" in meta and state["id"] not in meta["to"]:
+    if not sender or sender == state["id"] or ("to" in meta and state["id"] not in meta["to"]):
         return
     kind = meta.get("k")
     name = meta.get("n") or "there"
+    with lock:
+        if sender not in room["devices"]:
+            room["devices"].append(sender)
+            save()
     if kind == "ping":
-        hello(state, to=sender)
-        return
-    if kind == "hello":
-        if meta.get("re"):
-            log("joined", sender, meta.get("src"))
-            threading.Thread(target=welcome, args=(state, sender, name), daemon=True).start()
-        return
-    if kind not in ("text", "image", "file") or not allowed(sender):
-        return
-    if kind == "text":
-        text = meta.get("v")
-        if text is None and event.get("attachment"):
-            sealed = request(event["attachment"]["url"], timeout=120).read()
-            text = open_sealed(base64.b64decode(state["key"]), sealed).decode("utf-8", "replace")
-        text = (text or "").strip()
-        lowered = text.lower()
-        if any(word in lowered for word in ("image", "picture", "photo", "картин", "фото")):
-            send_image(state, sender)
-            return
-        if any(word in lowered for word in ("alert", "notification", "уведом")):
-            alert(state, "Demo alert", f"{name} asked for a notification.")
-            return
-        quoted = text if len(text) <= 80 else text[:79] + "…"
-        say(state, f"The demo computer got \"{quoted}\". On a real computer it is on the clipboard now, ready to paste.", sender)
-    elif kind == "image":
-        size = event.get("attachment", {}).get("size", 0)
-        say(state, f"The demo computer got your image, {size_label(size)}. On a real computer you could paste it now.", sender)
-    else:
-        say(state, f"The demo computer got {meta.get('f', 'a file')}, {size_label(meta.get('s', 0))}. A real computer puts it into Downloads.", sender)
+        publish(room, {"k": "hello", "pk": state["pk"], "to": [sender]})
+    elif kind == "hello" and meta.get("re"):
+        log("joined", room["topic"], meta.get("src"))
+        threading.Thread(target=welcome, args=(room, sender, name), daemon=True).start()
+    elif kind in ("text", "image", "file") and allowed(sender):
+        if kind == "text":
+            text = meta.get("v")
+            if text is None and event.get("attachment"):
+                sealed = request(event["attachment"]["url"], timeout=120).read()
+                text = open_sealed(base64.b64decode(room["key"]), sealed).decode("utf-8", "replace")
+            text = (text or "").strip()
+            lowered = text.lower()
+            if any(word in lowered for word in ("image", "picture", "photo", "картин", "фото")):
+                send_image(room, sender)
+            elif any(word in lowered for word in ("alert", "notification", "уведом")):
+                if not alert("Demo alert", "Someone in the demo asked for a notification. Your own servers and scripts send these."):
+                    say(room, "A notification went out less than a minute ago, the Notifications tab has it.", sender)
+            else:
+                quoted = text if len(text) <= 80 else text[:79] + "…"
+                say(room, f"The demo computer got \"{quoted}\". On a real computer it is on the clipboard now, ready to paste.", sender)
+        elif kind == "image":
+            say(room, f"The demo computer got your image, {size_label(event.get('attachment', {}).get('size', 0))}. On a real computer you could paste it now.", sender)
+        else:
+            say(room, f"The demo computer got {meta.get('f', 'a file')}, {size_label(meta.get('s', 0))}. A real computer puts it into Downloads.", sender)
 
 
-def listen(state):
-    delay = 1
-    while True:
+def close(room):
+    devices = list(room["devices"])
+    if devices:
         try:
-            since = urllib.parse.quote(state.get("since") or "1m")
-            with request(f"/{state['room']}/json?since={since}", timeout=90) as stream:
-                delay = 1
+            publish(room, {"k": "text", "v": "The demo hour is over, so this room closes now. Set up Tossling on your computer to keep going: github.com/Tossling", "to": devices})
+            time.sleep(2)
+            publish(room, {"k": "kick", "to": devices})
+        except Exception as error:
+            log("close failed", room["topic"], repr(error))
+    with lock:
+        state["rooms"].pop(room["topic"], None)
+        save()
+    interrupt()
+    log("closed", room["topic"], len(devices))
+
+
+def janitor():
+    while True:
+        time.sleep(20)
+        now = time.time()
+        with lock:
+            rooms = list(state["rooms"].values())
+        for room in rooms:
+            if now - room["created"] > LIFETIME or (not room["devices"] and now - room["created"] > UNUSED):
+                close(room)
+
+
+def listen():
+    since = int(time.time()) - 2
+    while True:
+        changed.clear()
+        since = max(since, int(time.time()) - 600)
+        with lock:
+            topics = list(state["rooms"])
+        if not topics:
+            changed.wait(60)
+            continue
+        try:
+            with request(f"/{','.join(topics)}/json?since={since}", timeout=90) as stream:
+                streaming["response"] = stream
+                if changed.is_set():
+                    continue
                 for line in stream:
                     event = json.loads(line)
-                    if event.get("event") != "message":
+                    if changed.is_set():
+                        break
+                    if event.get("event") != "message" or event["id"] in seen_events:
                         continue
-                    state["since"] = event["id"]
-                    save(state)
-                    try:
-                        handle(state, event)
-                    except Exception as error:
-                        log("message failed", repr(error))
+                    seen_events.append(event["id"])
+                    del seen_events[:-5000]
+                    since = max(since, event.get("time", int(time.time())) - 2)
+                    with lock:
+                        room = state["rooms"].get(event.get("topic"))
+                    if room:
+                        try:
+                            handle(room, event)
+                        except Exception as error:
+                            log("message failed", repr(error))
         except Exception as error:
-            log("stream", repr(error))
-            time.sleep(delay)
-            delay = min(delay * 2, 60)
+            if not changed.is_set():
+                log("stream", repr(error))
+                time.sleep(3)
+        finally:
+            streaming["response"] = None
+
+
+def address_allowed(address):
+    now = time.time()
+    with lock:
+        recent = [t for t in requests_by_address.get(address, []) if now - t < 3600]
+        ok = len(recent) < ROOMS_PER_ADDRESS and len(state["rooms"]) < MAX_ROOMS
+        requests_by_address[address] = recent + ([now] if ok else [])
+        return ok
+
+
+def qr_svg(text):
+    import qrcode
+    import qrcode.image.svg
+    image = qrcode.make(text, image_factory=qrcode.image.svg.SvgPathImage, box_size=8, border=2)
+    out = io.BytesIO()
+    image.save(out)
+    return out.getvalue().decode()
+
+
+PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tossling demo</title><style>
+:root{color-scheme:light dark;--bg:#f3f4f8;--card:#fff;--ink:#1d2030;--ink2:#5b6072;--accent:#3067b8}
+@media (prefers-color-scheme:dark){:root{--bg:#14161d;--card:#1e212b;--ink:#eef0f6;--ink2:#9aa0b2;--accent:#7aa6f0}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,system-ui,sans-serif}
+main{max-width:520px;margin:0 auto;padding:32px 16px}
+.card{background:var(--card);border-radius:24px;padding:24px;margin-top:20px}
+.qr{background:#fff;border-radius:16px;padding:12px;display:flex;justify-content:center}.qr svg{width:100%;max-width:300px;height:auto}
+a.button{display:block;text-align:center;background:var(--accent);color:#fff;text-decoration:none;border-radius:999px;padding:14px;font-weight:600;margin-top:16px}
+p{color:var(--ink2)}h1{margin:0 0 8px}</style></head><body><main>
+<h1>Try Tossling</h1><p>This is a room of your own with a demo computer in it. It lasts {minutes} minutes.</p>
+<div class="card"><div class="qr">{svg}</div>
+<p>In Tossling tap Pair with a computer and scan the code. On the phone itself, tap the button.</p>
+<a class="button" href="{link}">Open in Tossling</a></div>
+<p>No app yet? Get it at <a href="https://github.com/Tossling">github.com/Tossling</a>. Reload the page for a new room.</p>
+</main></body></html>"""
+
+
+class Handler(BaseHTTPRequestHandler):
+
+    def log_message(self, *args):
+        pass
+
+    def address(self):
+        forwarded = self.headers.get("X-Forwarded-For", "")
+        return forwarded.split(",")[0].strip() or self.client_address[0]
+
+    def answer(self, status, body, content_type):
+        data = body.encode()
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        path = urllib.parse.urlparse(self.path).path.rstrip("/")
+        if path not in ("/demo", "/demo/room"):
+            self.answer(404, "Not found\n", "text/plain")
+            return
+        if not address_allowed(self.address()):
+            self.answer(429, json.dumps({"error": "Too many demo rooms, try again later"}), "application/json")
+            return
+        room = new_room()
+        if path == "/demo/room":
+            self.answer(200, json.dumps(room), "application/json")
+        else:
+            page = PAGE.replace("{svg}", qr_svg(room["code"])).replace("{link}", html.escape(room["link"])).replace("{minutes}", str(LIFETIME // 60))
+            self.answer(200, page, "text/html; charset=utf-8")
 
 
 def server_token():
@@ -259,16 +389,14 @@ def main():
     if not TOKEN:
         sys.exit("TOSSLING_TOKEN or TOSSLING_SETTINGS is required")
     wait_for_server()
-    state = setup()
-    command = sys.argv[1] if len(sys.argv) > 1 else "run"
-    if command == "code":
-        code = pairing_code(state)
-        print(code)
-        print("tossling://join?code=" + base64.urlsafe_b64encode(code.encode()).decode().rstrip("="))
+    setup()
+    if len(sys.argv) > 1 and sys.argv[1] == "room":
+        print(json.dumps(new_room(), indent=1))
         return
-    log("demo computer in", state["room"])
-    hello(state)
-    listen(state)
+    threading.Thread(target=listen, daemon=True).start()
+    threading.Thread(target=janitor, daemon=True).start()
+    log("demo computer on port", PORT, "rooms last", LIFETIME // 60, "minutes")
+    ThreadingHTTPServer(("", PORT), Handler).serve_forever()
 
 
 if __name__ == "__main__":

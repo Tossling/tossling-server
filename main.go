@@ -23,6 +23,7 @@ type options struct {
 	baseURL     string
 	behindProxy bool
 	firebaseKey string
+	demo        bool
 }
 
 func parseOptions(args []string) options {
@@ -32,6 +33,7 @@ func parseOptions(args []string) options {
 	baseURL := flags.String("base-url", env("TOSSLING_BASE_URL", env("TOSSY_BASE_URL", "")), "public address of the server, e.g. https://tossling.example.com (TOSSLING_BASE_URL)")
 	behindProxy := flags.Bool("behind-proxy", env("TOSSLING_BEHIND_PROXY", env("TOSSY_BEHIND_PROXY", "")) == "true", "take the client address from X-Forwarded-For set by a reverse proxy in front (TOSSLING_BEHIND_PROXY=true)")
 	firebaseKey := flags.String("firebase-key", env("TOSSLING_FIREBASE_KEY_FILE", env("TOSSY_FIREBASE_KEY_FILE", "")), "Firebase service account JSON, for instant delivery to the Tossling app (TOSSLING_FIREBASE_KEY_FILE)")
+	demo := flags.Bool("demo", env("TOSSLING_DEMO", "") == "true", "a public demo server: files up to 10 MB, rate limits for many guests sharing one token (TOSSLING_DEMO=true)")
 	flags.Usage = func() {
 		fmt.Fprintln(flags.Output(), "Usage: tossling-server [flags]            run the server")
 		fmt.Fprintln(flags.Output(), "       tossling-server setup-link [flags] print a new link to the setup page")
@@ -50,7 +52,7 @@ func parseOptions(args []string) options {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return options{listen: *listen, dataDir: dir, baseURL: strings.TrimRight(*baseURL, "/"), behindProxy: *behindProxy, firebaseKey: *firebaseKey}
+	return options{listen: *listen, dataDir: dir, baseURL: strings.TrimRight(*baseURL, "/"), behindProxy: *behindProxy, firebaseKey: *firebaseKey, demo: *demo}
 }
 
 func main() {

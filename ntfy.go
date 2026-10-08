@@ -65,6 +65,18 @@ func startNtfy(opts options, settings *Settings) (*ntfyBackend, error) {
 	conf.AttachmentExpiryDuration = 3 * time.Hour
 	conf.VisitorAttachmentTotalSizeLimit = 5 * 1024 * 1024 * 1024
 	conf.VisitorAttachmentDailyBandwidthLimit = 20 * 1024 * 1024 * 1024
+	if opts.demo {
+		conf.AttachmentFileSizeLimit = 10 * 1024 * 1024
+		conf.AttachmentTotalSizeLimit = 2 * 1024 * 1024 * 1024
+		conf.VisitorAttachmentTotalSizeLimit = 2 * 1024 * 1024 * 1024
+		conf.CacheDuration = time.Hour
+		conf.AttachmentExpiryDuration = time.Hour
+		conf.VisitorRequestLimitBurst = 5000
+		conf.VisitorRequestLimitReplenish = 20 * time.Millisecond
+		conf.VisitorSubscriptionLimit = 2000
+		conf.VisitorTopicCreationLimitBurst = 2000
+		conf.VisitorTopicCreationLimitReplenish = time.Second
+	}
 	conf.BehindProxy = true
 	conf.VisitorRequestExemptPrefixes = []netip.Prefix{netip.MustParsePrefix(internalIP + "/32")}
 	conf.ProxyForwardedHeader = clientIPHeader
