@@ -5,7 +5,7 @@
 <h1 align="center">Tossling Server</h1>
 
 <p align="center">
-  The server for <a href="https://github.com/tossling/tossling-desktop">Tossling</a>: one clipboard for your Macs and Android phone.<br>
+  The server for <a href="https://github.com/tossling/tossling-desktop">Tossling</a>: one clipboard for your computers and Android phone (iOS in progress).<br>
   One Docker container that relays ciphertext and never sees the clipboard.
 </p>
 
