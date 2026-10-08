@@ -1,0 +1,25 @@
+services:
+  tossling-server:
+    image: ghcr.io/tossling/tossling-server:latest
+    restart: unless-stopped
+    ports:
+      - "8092:8090"
+    environment:
+      TOSSLING_BASE_URL: https://demo.tossling.example.com
+      TOSSLING_BEHIND_PROXY: "true"
+    volumes:
+      - ./server:/data
+
+  demo-bot:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - tossling-server
+    environment:
+      TOSSLING_SERVER: http://tossling-server:8090
+      TOSSLING_SETTINGS: /server/tossling-server.json
+      DEMO_PUBLIC_URL: https://demo.tossling.example.com
+      DEMO_STATE: /data/demo.json
+    volumes:
+      - ./server:/server:ro
+      - ./bot:/data
