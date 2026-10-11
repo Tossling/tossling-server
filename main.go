@@ -102,6 +102,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if kept, err := keepRoomTokens(manager); err != nil {
+		log.Printf("room tokens: %v", err)
+	} else if kept > 0 {
+		log.Printf("room tokens: %d no longer expire", kept)
+	}
 	service := newServiceOverSocket(manager, backend.socket, opts, settings.Token)
 	server := &http.Server{
 		Addr:              opts.listen,

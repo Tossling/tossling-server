@@ -81,6 +81,8 @@ type pageData struct {
 	Projects      []project
 	Project       *project
 	Publishers    []publisherInfo
+	RoomTokens    []roomToken
+	TokenLimit    int
 	Events        []event
 	DeviceChannel bool
 	SetupLink     string
@@ -173,6 +175,13 @@ func newFrontend(socket string, opts options, store *settingsStore, service *pro
 	}
 	panel.routes(mux)
 	panel.apiRoutes(mux)
+	mux.HandleFunc("POST /v1/account/token", func(w http.ResponseWriter, r *http.Request) {
+		if !panel.deviceAuthed(r) {
+			proxy.ServeHTTP(w, r)
+			return
+		}
+		panel.issueToken(w, r)
+	})
 	mux.Handle("/", proxy)
 	return mux
 }

@@ -343,6 +343,10 @@ func (a *adminPanel) renderSecurity(w http.ResponseWriter, r *http.Request, stat
 	if pubs, err := a.service.publishers(); err == nil {
 		data.Publishers = pubs
 	}
+	if tokens, err := roomTokens(a.service.manager); err == nil {
+		data.RoomTokens = tokens
+	}
+	data.TokenLimit = roomTokenLimit
 	data.Flash = flash
 	data.Error = problem
 	data.SetupLink = link
@@ -380,6 +384,13 @@ func (a *adminPanel) securityAction(w http.ResponseWriter, r *http.Request) {
 		log.Print("panel: password changed")
 		_ = a.startSession(w)
 		a.renderSecurity(w, r, http.StatusOK, texts["PasswordChanged"], "", "")
+	case "remove-token":
+		if err := removeRoomToken(a.service.manager, r.FormValue("id")); err != nil {
+			a.renderSecurity(w, r, http.StatusBadRequest, "", texts["TokenGone"], "")
+			return
+		}
+		log.Print("panel: a room token removed")
+		a.renderSecurity(w, r, http.StatusOK, texts["TokenRemoved"], "", "")
 	case "logout-all":
 		if err := a.store.rotateSessions(); err != nil {
 			a.renderSecurity(w, r, http.StatusInternalServerError, "", err.Error(), "")

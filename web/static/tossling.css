@@ -247,6 +247,7 @@ main.wide { max-width: 760px; }
 .stat-label { font-size: 13px; line-height: 18px; color: var(--ink2); }
 
 .row-head { padding: 16px 16px 8px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: .04em; }
+.row-note { padding: 0 16px 8px; }
 .kv { display: flex; justify-content: space-between; gap: 16px; padding: 12px 16px; overflow-wrap: anywhere; }
 .kv span:first-child { color: var(--ink2); }
 .kv span:last-child { text-align: right; }
@@ -295,6 +296,7 @@ a.item:hover { text-decoration: none; background: var(--gw); }
 .secondary { background: var(--gs); color: var(--aci); box-shadow: var(--sp); }
 .danger { background: var(--dgs); color: var(--dgi); border-color: transparent; }
 .secondary:active, .danger:active { transform: scale(.96); }
+.danger.small { height: 36px; padding: 0 14px; font-size: 14px; }
 .link-button { display: flex; align-items: center; justify-content: center; text-decoration: none; }
 a.primary.link-button { color: var(--onac); border: 0; }
 a.primary.link-button:hover { text-decoration: none; }

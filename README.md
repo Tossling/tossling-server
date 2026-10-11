@@ -84,8 +84,8 @@ rooms, `mac` and `claude`.
 </p>
 
 `/admin` manages the server in the browser: an overview (rooms in use, project events, storage, Firebase), projects with
-their recent events (create, rename, send a test event, new publisher token, delete) and security (publishers and when
-their tokens were last used, a new setup link, the panel password, signing out everywhere). The password is set on the
+their recent events (create, rename, send a test event, new publisher token, delete) and security (room tokens and
+publishers with when their tokens were last used, a new setup link, the panel password, signing out everywhere). The password is set on the
 setup page or with `tossling-server admin-password`. Sessions last 30 days; sign-in attempts are limited per address.
 
 The same project operations are open to the Tossling apps with the device token: `GET /v1/tossling/projects`,

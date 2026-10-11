@@ -114,6 +114,14 @@ var english = Texts{
 	"LogoutAll":        "Sign out everywhere",
 	"LogoutAllNote":    "Every open panel session ends.",
 	"Wrong":            "Something went wrong",
+	"RoomTokens":       "Room tokens",
+	"RoomTokensNote":   "Each room on this server has a token of its own, and room tokens do not expire. The server keeps up to %d. Remove a token only when nobody uses its room: its devices lose the connection.",
+	"ServerToken":      "Server token from the setup page",
+	"Expires":          "expires",
+	"RemoveToken":      "Remove",
+	"RemoveTokenNote":  "The devices of the room with this token lose the connection and have to join again.",
+	"TokenRemoved":     "The token is removed",
+	"TokenGone":        "This token is already gone",
 }
 
 var russian = Texts{
@@ -221,6 +229,14 @@ var russian = Texts{
 	"LogoutAll":        "Выйти на всех устройствах",
 	"LogoutAllNote":    "Все открытые сессии панели закончатся.",
 	"Wrong":            "Что-то пошло не так",
+	"RoomTokens":       "Токены комнат",
+	"RoomTokensNote":   "У каждой комнаты на этом сервере свой токен, и срока у таких токенов нет. Сервер хранит до %d. Удаляй токен, только если его комнатой никто не пользуется, иначе ее устройства потеряют связь.",
+	"ServerToken":      "Токен сервера со страницы настройки",
+	"Expires":          "истекает",
+	"RemoveToken":      "Удалить",
+	"RemoveTokenNote":  "Устройства комнаты с этим токеном потеряют связь, их придется подключить заново.",
+	"TokenRemoved":     "Токен удален",
+	"TokenGone":        "Этого токена уже нет",
 }
 
 func textsFor(r *http.Request) Texts {

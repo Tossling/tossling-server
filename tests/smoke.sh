@@ -48,8 +48,18 @@ curl -s -H "$AUTH" -o "$TMP/back.bin" "$URL/file/${file_url##*/file/}"
 check "attachment round trip" same "$(cmp -s "$TMP/file.bin" "$TMP/back.bin" && echo same || echo different)"
 check "poll a room" 2 "$(curl -s -H "$AUTH" "$URL/tossling-smoke/json?poll=1&since=all" | grep -c '"event":"message"')"
 
-new=$(curl -s -H "$AUTH" -X POST -H 'Content-Type: application/json' -d '{"label":"smoke"}' "$URL/v1/account/token" | sed -n 's/.*"token":"\(tk_[A-Za-z0-9]*\)".*/\1/p')
+issued=$(curl -s -H "$AUTH" -X POST -H 'Content-Type: application/json' -d '{"label":"smoke"}' "$URL/v1/account/token")
+new=$(echo "$issued" | sed -n 's/.*"token":"\(tk_[A-Za-z0-9]*\)".*/\1/p')
 check "new account token works" 200 "$(code -H "Authorization: Bearer $new" "$URL/v1/account")"
+check "a room token does not expire" 0 "$(echo "$issued" | grep -c '"expires"')"
+listed=$(curl -s -H "Authorization: Bearer $new" "$URL/v1/account" | grep -o '"token":"'"$new"'"[^}]*' || true)
+check "the token list says so too" "1 0" "$(echo "$listed" | grep -c tk_) $(echo "$listed" | grep -c '"expires"')"
+short=$(curl -s -H "$AUTH" -X POST -d '{"label":"smoke","expires":4102444800}' "$URL/v1/account/token")
+check "an explicit expiry is kept" 1 "$(echo "$short" | grep -c '"expires":4102444800')"
+check "a wrong token cannot issue tokens" 401 "$(code -H "Authorization: Bearer tk_wrongwrongwrongwrongwrongwrong" -X POST -d '{}' "$URL/v1/account/token")"
+check "no token cannot issue tokens" 401 "$(code -X POST -d '{}' "$URL/v1/account/token")"
+gone=$(echo "$short" | sed -n 's/.*"token":"\(tk_[A-Za-z0-9]*\)".*/\1/p')
+check "delete the short token" 200 "$(code -H "$AUTH" -H "X-Token: $gone" -X DELETE "$URL/v1/account/token")"
 check "delete the token" 200 "$(code -H "Authorization: Bearer $new" -H "X-Token: $new" -X DELETE "$URL/v1/account/token")"
 check "deleted token is refused" 401 "$(code -H "Authorization: Bearer $new" "$URL/v1/account")"
 subscription='{"base_url":"'"$URL"'","topic":"smoke"}'
@@ -124,6 +134,12 @@ check "new token publishes" 200 "$(code -H "Authorization: Bearer $NT" -d x "$UR
 check "delete from the panel" 303 "$(code -b "$JAR" -H "$O" -X POST "$URL/admin/projects/panel-alerts/delete")"
 check "deleted project token refused" 401 "$(code -H "Authorization: Bearer $NT" -d x "$URL/panel-alerts")"
 check "security page" 200 "$(code -b "$JAR" "$URL/admin/security")"
+spare=$(curl -s -H "$AUTH" -X POST -d '{"label":"spare"}' "$URL/v1/account/token" | sed -n 's/.*"token":"\(tk_[A-Za-z0-9]*\)".*/\1/p')
+page=$(curl -s -b "$JAR" "$URL/admin/security")
+check "panel lists room tokens without their values" "1 0" "$(echo "$page" | grep -c '>spare<') $(echo "$page" | grep -c "$spare")"
+spare_id=$(echo "$page" | grep -A2 '>spare<' | sed -n 's/.*name="id" value="\([0-9a-f]*\)".*/\1/p')
+check "panel removes a room token" 200 "$(code -b "$JAR" -H "Origin: $URL" -d "id=$spare_id" "$URL/admin/security/remove-token")"
+check "removed room token is refused" 401 "$(code -H "Authorization: Bearer $spare" "$URL/v1/account")"
 check "api needs a device token" 401 "$(code "$URL/v1/tossling/projects")"
 check "api lists projects" 1 "$(curl -s -H "$AUTH" "$URL/v1/tossling/projects" | grep -c '"topic":"mac"\|"topic":"claude"\|^\[')"
 AT=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' -d '{"topic":"api-alerts","name":"API"}' "$URL/v1/tossling/projects" | grep -o 'tk_[A-Za-z0-9]*' | head -1)

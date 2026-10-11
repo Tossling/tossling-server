@@ -66,11 +66,23 @@ body that is not a JSON error from `/v1/tossling/…` retries under `/v1/tossy/�
 | Fetch what was missed | `GET /<topic>/json?poll=1&since=<id or duration>` |
 | Download an attachment | `GET <attachment.url>` with the token |
 | Subscriptions (projects) | `GET /v1/account` → `subscriptions: [{"base_url", "topic", "display_name"}]` |
-| New token | `POST /v1/account/token` with `{"label": "tossling"}` → `{"token"}` |
+| New token | `POST /v1/account/token` with `{"label": "tossling", "expires": 0}` → `{"token"}` |
 | Retire a token | `DELETE /v1/account/token` with `X-Token: <old token>` |
 
 The apps send `X-Priority: 4`. Only `"event": "message"` events matter; everything else is skipped. Attachments up to
 520 MiB are kept for 3 hours.
+
+A room token must not expire, so devices always send `"expires": 0`. Plain ntfy gives a token without `expires` 72
+hours, and nothing extends it. Tossling Server 0.4.0 and later issue room tokens without an expiry even when a device
+leaves `expires` out, and at the first start make the room tokens left from older versions permanent. ntfy keeps at
+most 60 tokens per user and drops the extra ones by expiry, which would hit a live room, so Tossling Server answers
+409 instead of issuing a 61st token. The owner removes unused room tokens in the server panel.
+
+When the server refuses the token (401 on a topic, 401 or 403 on `/v1/account`), the device stops and says that its
+token is no longer accepted and it has to be connected again. It retries after 1, 2, 4 … minutes, at most every 30
+minutes, and starts over when it gets a new room, token or server. ntfy counts failed sign-ins per address and, after
+30 of them, answers 429 to every request from that address, including the devices behind the same router that still
+have a good token. A 429 gets the same pauses and is shown as a connection problem.
 
 ## Rooms
 
@@ -212,7 +224,7 @@ Any device can remove another one except the owner. Removal moves everyone else 
 does not know:
 
 1. Make a new room topic and key. If every remaining device has a `pk`, also issue a new token
-   (`POST /v1/account/token`).
+   (`POST /v1/account/token`). If the removal stops before the `rekey` is published, delete that token again.
 2. Publish `kick` with `to: [removed id]`. That device forgets the room (the owner ignores a kick).
 3. Publish `rekey` with `to` = the remaining ids, `e` = an ephemeral X25519 public key and `keys` = for each
    remaining id, the secret `{"key", "r", "t"?}` (JSON, sorted keys) sealed for that device (vectors: `rekey`):
@@ -226,7 +238,9 @@ does not know:
    If some remaining device has no `pk` yet, `r` and `key` also go in the clear inside the envelope (still under the
    old room key) and no new token is issued.
 4. Everyone, the sender included, switches to the new room and token, forgets members not in `to` plus the sender,
-   and says `hello` there. The old token is deleted a day later (`DELETE /v1/account/token`).
+   and says `hello` there. The old token is deleted a day later (`DELETE /v1/account/token`). A 404 means it is
+   already gone. A 409 means it is the server's own token from the setup page, which cannot be deleted: a removed
+   device that had it can still reach the server, but no longer knows the room key.
 
 **move** (`r`): sent by a desktop on the old pre-room phone channel to tell a phone that predates rooms where the room
 is. Only legacy pairings act on it.
