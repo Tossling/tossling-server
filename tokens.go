@@ -81,7 +81,7 @@ func deviceOf(label string) (id, name string, ok bool) {
 	return id, name, id != ""
 }
 
-func issueDeviceToken(m *user.Manager, presented, id, name string, origin netip.Addr) (*user.Token, error) {
+func issueDeviceToken(m *user.Manager, id, name string, origin netip.Addr) (*user.Token, error) {
 	if !deviceIDPattern.MatchString(id) {
 		return nil, errDeviceID
 	}
@@ -100,7 +100,7 @@ func issueDeviceToken(m *user.Manager, presented, id, name string, origin netip.
 		owner, _, isDevice := deviceOf(t.Label)
 		switch {
 		case t.Provisioned:
-		case expired(t), isDevice && owner == id, t.Value == presented && expiring(t):
+		case expired(t), isDevice && owner == id:
 			drop = append(drop, t)
 		}
 	}

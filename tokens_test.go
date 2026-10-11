@@ -147,30 +147,23 @@ func TestThePanelRemovesARoomTokenByItsID(t *testing.T) {
 	}
 }
 
-func TestAnInviteTokenBecomesATokenOfTheDeviceItsOwn(t *testing.T) {
+func TestADeviceGetsATokenOfItsOwnAndTheRoomTokenStays(t *testing.T) {
 	m, u := deviceManager(t)
 	shared, err := issueRoomToken(m, "tossling", neverExpires, netip.IPv4Unspecified())
 	if err != nil {
 		t.Fatal(err)
 	}
-	invite, err := issueRoomToken(m, "tossling-invite", time.Now().Add(time.Hour), netip.IPv4Unspecified())
-	if err != nil {
-		t.Fatal(err)
-	}
-	own, err := issueDeviceToken(m, invite.Value, "pixel1", "Pixel  9", netip.MustParseAddr("192.0.2.9"))
+	own, err := issueDeviceToken(m, "pixel1", "Pixel  9", netip.MustParseAddr("192.0.2.9"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if own.Expires.Unix() != 0 || own.Label != "tossling-device:pixel1:Pixel 9" {
 		t.Fatalf("own = %+v", own)
 	}
-	if _, err := m.AuthenticateToken(invite.Value); err == nil {
-		t.Fatal("the invite token still works after the exchange")
-	}
 	if _, err := m.AuthenticateToken(shared.Value); err != nil {
-		t.Fatal("a shared room token must survive another device's exchange")
+		t.Fatal("the room token must stay for invites and older devices")
 	}
-	again, err := issueDeviceToken(m, shared.Value, "pixel1", "Pixel 9", netip.IPv4Unspecified())
+	again, err := issueDeviceToken(m, "pixel1", "Pixel 9", netip.IPv4Unspecified())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +172,7 @@ func TestAnInviteTokenBecomesATokenOfTheDeviceItsOwn(t *testing.T) {
 	}
 	tokens, _ := m.Tokens(u.ID)
 	if len(tokens) != 2 {
-		t.Fatalf("%d tokens, want the shared one and the new device one", len(tokens))
+		t.Fatalf("%d tokens, want the room one and the new device one", len(tokens))
 	}
 	if _, err := m.AuthenticateToken(again.Value); err != nil {
 		t.Fatal(err)
@@ -188,8 +181,8 @@ func TestAnInviteTokenBecomesATokenOfTheDeviceItsOwn(t *testing.T) {
 
 func TestRemovingADeviceCutsOffOnlyThatDevice(t *testing.T) {
 	m, _ := deviceManager(t)
-	pixel, _ := issueDeviceToken(m, "", "pixel1", "Pixel", netip.IPv4Unspecified())
-	mac, _ := issueDeviceToken(m, "", "mac1", "Mac", netip.IPv4Unspecified())
+	pixel, _ := issueDeviceToken(m, "pixel1", "Pixel", netip.IPv4Unspecified())
+	mac, _ := issueDeviceToken(m, "mac1", "Mac", netip.IPv4Unspecified())
 	removed, err := removeDeviceTokens(m, "pixel1")
 	if err != nil || removed != 1 {
 		t.Fatalf("removed %d, %v", removed, err)
@@ -208,16 +201,15 @@ func TestRemovingADeviceCutsOffOnlyThatDevice(t *testing.T) {
 func TestDeviceIDsAreChecked(t *testing.T) {
 	m, _ := deviceManager(t)
 	for _, id := range []string{"", "a:b", "white space", "../x"} {
-		if _, err := issueDeviceToken(m, "", id, "x", netip.IPv4Unspecified()); !errors.Is(err, errDeviceID) {
+		if _, err := issueDeviceToken(m, id, "x", netip.IPv4Unspecified()); !errors.Is(err, errDeviceID) {
 			t.Fatalf("id %q: %v", id, err)
 		}
 	}
 }
 
-func TestADeviceTokenPastTheLimitKeepsTheOldOne(t *testing.T) {
+func TestADeviceTokenPastTheLimitIsRefusedButARenewalFits(t *testing.T) {
 	m, _ := deviceManager(t)
-	old, err := issueDeviceToken(m, "", "pixel1", "Pixel", netip.IPv4Unspecified())
-	if err != nil {
+	if _, err := issueDeviceToken(m, "pixel1", "Pixel", netip.IPv4Unspecified()); err != nil {
 		t.Fatal(err)
 	}
 	for i := 1; i < roomTokenLimit; i++ {
@@ -225,17 +217,17 @@ func TestADeviceTokenPastTheLimitKeepsTheOldOne(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := issueDeviceToken(m, "", "mac1", "Mac", netip.IPv4Unspecified()); !errors.Is(err, errRoomTokenLimit) {
+	if _, err := issueDeviceToken(m, "mac1", "Mac", netip.IPv4Unspecified()); !errors.Is(err, errRoomTokenLimit) {
 		t.Fatalf("err = %v", err)
 	}
-	if _, err := issueDeviceToken(m, old.Value, "pixel1", "Pixel", netip.IPv4Unspecified()); err != nil {
+	if _, err := issueDeviceToken(m, "pixel1", "Pixel", netip.IPv4Unspecified()); err != nil {
 		t.Fatalf("replacing a device's own token must fit: %v", err)
 	}
 }
 
 func TestThePanelShowsDevicesByName(t *testing.T) {
 	m, _ := deviceManager(t)
-	if _, err := issueDeviceToken(m, "", "pixel1", "Pixel 9", netip.IPv4Unspecified()); err != nil {
+	if _, err := issueDeviceToken(m, "pixel1", "Pixel 9", netip.IPv4Unspecified()); err != nil {
 		t.Fatal(err)
 	}
 	listed, _ := roomTokens(m)

@@ -107,12 +107,11 @@ func (a *adminPanel) issueDevice(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
-	presented := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	origin, err := netip.ParseAddr(clientIP(r, a.opts.behindProxy))
 	if err != nil {
 		origin = netip.IPv4Unspecified()
 	}
-	token, err := issueDeviceToken(a.service.manager, presented, req.ID, req.Name, origin)
+	token, err := issueDeviceToken(a.service.manager, req.ID, req.Name, origin)
 	switch {
 	case errors.Is(err, errDeviceID):
 		apiError(w, http.StatusBadRequest, err.Error())

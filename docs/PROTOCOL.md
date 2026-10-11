@@ -130,7 +130,6 @@ the same way with the same key: `nonce || ciphertext || tag`, raw bytes, not Bas
 | `s` | File size before encryption, bytes |
 | `pk` | The sender's X25519 public key, Base64 (on control messages) |
 | `re` | `true` on the `hello` of a device that has just joined: its `pk` replaces the one the others knew |
-| `own` | `true` on control messages of a device that has a [token of its own](#device-tokens) |
 | `inv` | On a `hello`: the invite topic it answers |
 | `e`, `keys`, `r`, `key` | Fields of `rekey` and `move`, below |
 
@@ -225,33 +224,26 @@ A device already in the room invites another one with a one-time code, without t
 ## Device tokens
 
 On a server whose health says `"devices": true` (Tossling Server 0.5.0 and later, except demo servers) every device
-has a token of its own, so one dead token cuts off one device, not the whole room, and removing a device does not
-touch the others' tokens.
+talks to the server with a token of its own. The room still has its shared token, but devices use it only to invite
+others and to get their own token. A dead shared token then stops new devices from joining and cuts off nobody, and a
+removed device loses its own token at once.
 
 - **Getting one**: `POST /v1/tossling/devices` with `{"id": "<device id>", "name": "<device name>"}`, authorized by
-  any token the server accepts, answers `{"token"}`. The server labels it `tossling-device:<id>:<name>`, keeps one
-  token per device id (an older one of the same id is deleted), and deletes the token the request came with when that
-  one has an expiry, as invite tokens do. A permanent shared room token is kept. 409 when the server already keeps 60
-  tokens.
-- A device whose token is not its own (it joined with an invite token, set up with the server's token, or comes from
-  an older version) asks for one as soon as it can and switches to it. A `hello` carries `own: true` once it has.
-- **Inviting**: on such a server the QR code and the invite code carry a fresh invite token instead of the inviter's
-  own: `POST /v1/account/token` with `{"label": "tossling-invite", "expires": <now + 1 hour>}`. A new QR or invite
-  gets a new token. The joiner trades it for a token of its own right after joining, which uses it up.
+  any token the server accepts, answers `{"token"}`. The server labels it `tossling-device:<id>:<name>` and keeps one
+  token per device id: an older one with the same id is deleted. 409 when the server already keeps 60 tokens.
+- A device that has only the shared token (it has just joined, set the room up, or comes from an older version) asks
+  for its own token as soon as it can, keeps the shared one aside and talks with its own from then on.
+- QR codes and invite codes carry the shared token, as before.
 - **Removing**: `DELETE /v1/tossling/devices/<id>` deletes every token of that device and answers `{"removed": n}`.
-- **Old devices**: a device without `own: true` still lives on the room's shared token, so the room keeps one as
-  before. When the removed device or any remaining one has no token of its own, removal also renews the shared token,
-  as described below. Devices that have a token of their own ignore a shared token in `rekey`.
+- Devices of older versions keep living on the shared token, so a room can mix both.
 
 ## Removing a device
 
 Any device can remove another one except the owner. Removal moves everyone else to a new room the removed device
 does not know:
 
-1. Make a new room topic and key. If the server gives devices tokens of their own and the removed device and every
-   remaining one have `own: true`, no shared token is needed. Otherwise, if every remaining device has a `pk`, also
-   issue a new shared token (`POST /v1/account/token`). If the removal stops before the `rekey` is published, delete
-   that token again.
+1. Make a new room topic and key. If every remaining device has a `pk`, also issue a new shared token
+   (`POST /v1/account/token`). If the removal stops before the `rekey` is published, delete that token again.
 2. Publish `kick` with `to: [removed id]`. That device forgets the room (the owner ignores a kick).
 3. Publish `rekey` with `to` = the remaining ids, `e` = an ephemeral X25519 public key and `keys` = for each
    remaining id, the secret `{"key", "r", "t"?}` (JSON, sorted keys) sealed for that device (vectors: `rekey`):
@@ -264,10 +256,11 @@ does not know:
 
    If some remaining device has no `pk` yet, `r` and `key` also go in the clear inside the envelope (still under the
    old room key) and no new token is issued.
-4. Everyone, the sender included, switches to the new room and token, forgets members not in `to` plus the sender,
-   and says `hello` there. On a server with device tokens the sender then deletes the removed device's tokens
-   (`DELETE /v1/tossling/devices/<id>`) after `kick` and `rekey` are out, so a device that is online still hears the
-   kick. The old token is deleted a day later (`DELETE /v1/account/token`). A 404 means it is
+4. Everyone, the sender included, switches to the new room and shared token, forgets members not in `to` plus the
+   sender, and says `hello` there. A device with a [token of its own](#device-tokens) keeps talking with it and only
+   puts the new shared token aside. On a server with device tokens the sender then deletes the removed device's own
+   tokens (`DELETE /v1/tossling/devices/<id>`), after `kick` and `rekey` are out, so a device that is online still
+   hears the kick. The old token is deleted a day later (`DELETE /v1/account/token`). A 404 means it is
    already gone. A 409 means it is the server's own token from the setup page, which cannot be deleted: a removed
    device that had it can still reach the server, but no longer knows the room key.
 

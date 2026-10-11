@@ -63,10 +63,9 @@ check "delete the short token" 200 "$(code -H "$AUTH" -H "X-Token: $gone" -X DEL
 check "delete the token" 200 "$(code -H "Authorization: Bearer $new" -H "X-Token: $new" -X DELETE "$URL/v1/account/token")"
 check "deleted token is refused" 401 "$(code -H "Authorization: Bearer $new" "$URL/v1/account")"
 check "health offers device tokens" 1 "$(curl -s "$URL/v1/tossling/health" | grep -c '"devices":true')"
-invite=$(curl -s -H "$AUTH" -X POST -d '{"label":"tossling-invite","expires":'"$(( $(date +%s) + 3600 ))"'}' "$URL/v1/account/token" | sed -n 's/.*"token":"\(tk_[A-Za-z0-9]*\)".*/\1/p')
-own=$(curl -s -H "Authorization: Bearer $invite" -X POST -d '{"id":"smoke1","name":"Smoke"}' "$URL/v1/tossling/devices" | sed -n 's/.*"token":"\(tk_[A-Za-z0-9]*\)".*/\1/p')
+own=$(curl -s -H "$AUTH" -X POST -d '{"id":"smoke1","name":"Smoke"}' "$URL/v1/tossling/devices" | sed -n 's/.*"token":"\(tk_[A-Za-z0-9]*\)".*/\1/p')
 check "a device gets a token of its own" 200 "$(code -H "Authorization: Bearer $own" "$URL/v1/account")"
-check "the invite token is used up" 401 "$(code -H "Authorization: Bearer $invite" "$URL/v1/account")"
+check "the room token still works" 200 "$(code -H "$AUTH" "$URL/v1/account")"
 check "a device id must be plain" 400 "$(code -H "$AUTH" -X POST -d '{"id":"a b","name":"x"}' "$URL/v1/tossling/devices")"
 check "devices need a token" 401 "$(code -X POST -d '{"id":"x","name":"x"}' "$URL/v1/tossling/devices")"
 check "remove a device" 1 "$(curl -s -H "$AUTH" -X DELETE "$URL/v1/tossling/devices/smoke1" | grep -c '"removed":1')"
