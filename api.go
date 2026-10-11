@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
+	"net/netip"
 	"strings"
 )
 
@@ -42,6 +44,10 @@ func (a *adminPanel) apiRoutes(mux *http.ServeMux) {
 }
 
 func (a *adminPanel) apiRoutesAt(mux *http.ServeMux, prefix string) {
+	if !a.opts.demo {
+		mux.HandleFunc("POST "+prefix+"/devices", a.deviceOnly(a.issueDevice))
+		mux.HandleFunc("DELETE "+prefix+"/devices/{id}", a.deviceOnly(a.removeDevice))
+	}
 	mux.HandleFunc("GET "+prefix+"/projects", a.deviceOnly(func(w http.ResponseWriter, r *http.Request) {
 		projects, err := a.service.projects()
 		if err != nil {
@@ -90,6 +96,53 @@ func (a *adminPanel) apiRoutesAt(mux *http.ServeMux, prefix string) {
 		log.Printf("api: project %s removed by a device", topic)
 		w.WriteHeader(http.StatusNoContent)
 	}))
+}
+
+func (a *adminPanel) issueDevice(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+	presented := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	origin, err := netip.ParseAddr(clientIP(r, a.opts.behindProxy))
+	if err != nil {
+		origin = netip.IPv4Unspecified()
+	}
+	token, err := issueDeviceToken(a.service.manager, presented, req.ID, req.Name, origin)
+	switch {
+	case errors.Is(err, errDeviceID):
+		apiError(w, http.StatusBadRequest, err.Error())
+		return
+	case errors.Is(err, errRoomTokenLimit):
+		log.Printf("api: device token refused, the server keeps %d", roomTokenLimit)
+		apiError(w, http.StatusConflict, err.Error())
+		return
+	case err != nil:
+		log.Printf("api: device token: %v", err)
+		apiError(w, http.StatusInternalServerError, "cannot create the token")
+		return
+	}
+	log.Printf("api: a token of its own for device %s", req.ID)
+	writeJSON(w, http.StatusOK, tokenResponse{Token: token.Value, Label: token.Label, LastAccess: token.LastAccess.Unix(), LastOrigin: token.LastOrigin.String()})
+}
+
+func (a *adminPanel) removeDevice(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	removed, err := removeDeviceTokens(a.service.manager, id)
+	if errors.Is(err, errDeviceID) {
+		apiError(w, http.StatusBadRequest, err.Error())
+		return
+	} else if err != nil {
+		log.Printf("api: device %s: %v", id, err)
+		apiError(w, http.StatusInternalServerError, "cannot remove the tokens")
+		return
+	}
+	log.Printf("api: device %s cut off, %d token(s) removed", id, removed)
+	writeJSON(w, http.StatusOK, map[string]int{"removed": removed})
 }
 
 func (a *adminPanel) deviceOnly(next http.HandlerFunc) http.HandlerFunc {

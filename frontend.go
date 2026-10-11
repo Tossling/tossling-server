@@ -170,7 +170,7 @@ func newFrontend(socket string, opts options, store *settingsStore, service *pro
 	for _, prefix := range apiPrefixes {
 		mux.HandleFunc("GET "+prefix+"/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"server": "tossling-server", "version": version, "push": opts.firebaseKey != "", "url": opts.baseURL})
+			_ = json.NewEncoder(w).Encode(map[string]any{"server": "tossling-server", "version": version, "push": opts.firebaseKey != "", "url": opts.baseURL, "devices": !opts.demo})
 		})
 	}
 	panel.routes(mux)

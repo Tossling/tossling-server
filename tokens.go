@@ -10,24 +10,33 @@ import (
 	"log"
 	"net/http"
 	"net/netip"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"heckel.io/ntfy/v2/user"
 )
 
-const roomTokenLimit = 60
+const (
+	roomTokenLimit    = 60
+	deviceLabelPrefix = "tossling-device:"
+	deviceNameLimit   = 64
+)
 
 var (
 	neverExpires      = time.Unix(0, 0)
-	errRoomTokenLimit = errors.New("the server already keeps 60 room tokens; remove unused ones under Security in the server panel")
+	errRoomTokenLimit = errors.New("the server already keeps 60 device and room tokens; remove unused ones under Security in the server panel")
+	errDeviceID       = errors.New("the device id must be 1 to 64 latin letters, digits, - or _")
 	roomTokenLock     sync.Mutex
+	deviceIDPattern   = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 )
 
 type roomToken struct {
 	ID          string
 	Label       string
+	Device      string
 	LastUsed    time.Time
 	LastOrigin  string
 	Expires     time.Time
@@ -51,6 +60,87 @@ func expiring(t *user.Token) bool {
 	return !t.Provisioned && t.Expires.Unix() > 0
 }
 
+func expired(t *user.Token) bool {
+	return expiring(t) && t.Expires.Before(time.Now())
+}
+
+func deviceLabel(id, name string) string {
+	name = strings.Join(strings.Fields(name), " ")
+	if len([]rune(name)) > deviceNameLimit {
+		name = string([]rune(name)[:deviceNameLimit])
+	}
+	return deviceLabelPrefix + id + ":" + name
+}
+
+func deviceOf(label string) (id, name string, ok bool) {
+	rest, found := strings.CutPrefix(label, deviceLabelPrefix)
+	if !found {
+		return "", "", false
+	}
+	id, name, _ = strings.Cut(rest, ":")
+	return id, name, id != ""
+}
+
+func issueDeviceToken(m *user.Manager, presented, id, name string, origin netip.Addr) (*user.Token, error) {
+	if !deviceIDPattern.MatchString(id) {
+		return nil, errDeviceID
+	}
+	roomTokenLock.Lock()
+	defer roomTokenLock.Unlock()
+	u, err := m.User(deviceUser)
+	if err != nil {
+		return nil, err
+	}
+	tokens, err := m.Tokens(u.ID)
+	if err != nil {
+		return nil, err
+	}
+	var drop []*user.Token
+	for _, t := range tokens {
+		owner, _, isDevice := deviceOf(t.Label)
+		switch {
+		case t.Provisioned:
+		case expired(t), isDevice && owner == id, t.Value == presented && expiring(t):
+			drop = append(drop, t)
+		}
+	}
+	if len(tokens)-len(drop) >= roomTokenLimit {
+		return nil, errRoomTokenLimit
+	}
+	for _, t := range drop {
+		if err := m.RemoveToken(u.ID, t.Value); err != nil {
+			return nil, err
+		}
+	}
+	return m.CreateToken(u.ID, deviceLabel(id, name), neverExpires, origin, false)
+}
+
+func removeDeviceTokens(m *user.Manager, id string) (int, error) {
+	if !deviceIDPattern.MatchString(id) {
+		return 0, errDeviceID
+	}
+	roomTokenLock.Lock()
+	defer roomTokenLock.Unlock()
+	u, err := m.User(deviceUser)
+	if err != nil {
+		return 0, err
+	}
+	tokens, err := m.Tokens(u.ID)
+	if err != nil {
+		return 0, err
+	}
+	removed := 0
+	for _, t := range tokens {
+		if owner, _, isDevice := deviceOf(t.Label); isDevice && owner == id && !t.Provisioned {
+			if err := m.RemoveToken(u.ID, t.Value); err != nil {
+				return removed, err
+			}
+			removed++
+		}
+	}
+	return removed, nil
+}
+
 func issueRoomToken(m *user.Manager, label string, expires time.Time, origin netip.Addr) (*user.Token, error) {
 	roomTokenLock.Lock()
 	defer roomTokenLock.Unlock()
@@ -64,7 +154,7 @@ func issueRoomToken(m *user.Manager, label string, expires time.Time, origin net
 	}
 	kept := 0
 	for _, t := range tokens {
-		if expiring(t) && t.Expires.Before(time.Now()) {
+		if expired(t) {
 			if err := m.RemoveToken(u.ID, t.Value); err != nil {
 				return nil, err
 			}
@@ -111,10 +201,13 @@ func roomTokens(m *user.Manager) ([]roomToken, error) {
 	}
 	out := make([]roomToken, 0, len(tokens))
 	for _, t := range tokens {
-		if expiring(t) && t.Expires.Before(time.Now()) {
+		if expired(t) {
 			continue
 		}
 		info := roomToken{ID: roomTokenID(t.Value), Label: t.Label, Expires: t.Expires, Provisioned: t.Provisioned}
+		if id, name, ok := deviceOf(t.Label); ok {
+			info.Device, info.Label = id, name
+		}
 		if t.LastAccess.Unix() > 0 {
 			info.LastUsed = t.LastAccess
 		}

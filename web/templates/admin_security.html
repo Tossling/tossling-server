@@ -5,7 +5,7 @@
 <p class="note row-note">{{printf .T.RoomTokensNote .TokenLimit}}</p>
 {{range $i, $t := .RoomTokens}}{{if $i}}<div class="divider flat"></div>{{end}}
 <div class="item static">
-<span class="item-main"><span class="item-title">{{if $t.Provisioned}}{{$.T.ServerToken}}{{else}}{{$t.Label}}{{end}}</span><span class="item-sub">{{if $t.LastUsed.IsZero}}{{$.T.NeverUsed}}{{else}}{{when $t.LastUsed}}{{if $t.LastOrigin}} · {{$t.LastOrigin}}{{end}}{{end}}{{if gt $t.Expires.Unix 0}} · {{$.T.Expires}} {{when $t.Expires}}{{end}}</span></span>
+<span class="item-main"><span class="item-title">{{if $t.Provisioned}}{{$.T.ServerToken}}{{else}}{{$t.Label}}{{end}}</span><span class="item-sub">{{if $t.Device}}{{$.T.DeviceID}} {{$t.Device}} · {{end}}{{if $t.LastUsed.IsZero}}{{$.T.NeverUsed}}{{else}}{{when $t.LastUsed}}{{if $t.LastOrigin}} · {{$t.LastOrigin}}{{end}}{{end}}{{if gt $t.Expires.Unix 0}} · {{$.T.Expires}} {{when $t.Expires}}{{end}}</span></span>
 {{if not $t.Provisioned}}<span class="item-side"><form method="post" action="/admin/security/remove-token" data-confirm="{{$.T.RemoveTokenNote}}"><input type="hidden" name="id" value="{{$t.ID}}"><button type="submit" class="danger small">{{$.T.RemoveToken}}</button></form></span>{{end}}
 </div>
 {{end}}
