@@ -165,6 +165,17 @@ check "old session ends" 303 "$(code -b "$JAR" "$URL/admin/")"
 for i in 1 2 3 4 5; do code -H "$O" -d password=wrong-wrong-$i "$URL/admin/login" > /dev/null; done
 check "sign-in attempts are limited" 429 "$(code -H "$O" -d password=smoke-password-1 "$URL/admin/login")"
 
+DEAD="Authorization: Bearer tk_$(openssl rand -hex 15 | cut -c1-29)"
+for i in $(seq 1 40); do code -H "$DEAD" "$URL/tossling-smoke/json?poll=1" > /dev/null; done
+check "a dead token is refused" 401 "$(code -H "$DEAD" "$URL/tossling-smoke/json?poll=1")"
+check "a dead token repeated does not lock out the network" 200 "$(code -H "$AUTH" "$URL/tossling-smoke/json?poll=1")"
+guessed=0
+for i in $(seq 1 40); do
+    c=$(code -H "Authorization: Bearer tk_$(openssl rand -hex 15 | cut -c1-29)" "$URL/tossling-smoke/json?poll=1")
+    [ "$c" = 429 ] && guessed=1 && break
+done
+check "guessing tokens is still limited" 1 "$guessed"
+
 limited=0
 for i in $(seq 1 90); do
     c=$(code -H "X-Tossling-Client-Ip: 10.1.0.$i" -H "X-Forwarded-For: 10.2.0.$i" "$URL/tossling-inv-SMOKE/json?poll=1")

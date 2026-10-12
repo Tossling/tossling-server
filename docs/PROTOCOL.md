@@ -87,6 +87,11 @@ minutes, and starts over when it gets a new room, token or server. ntfy counts f
 30 of them, answers 429 to every request from that address, including the devices behind the same router that still
 have a good token. A 429 gets the same pauses and is shown as a connection problem.
 
+Tossling Server 0.5.1 and later remember for an hour a token that ntfy refused and that the server's own token list
+confirms as unknown, and answer 401 to it without passing it to ntfy. A device that keeps knocking with one dead token
+then costs ntfy's counter one attempt an hour instead of one a minute, and the rest of the network keeps working. A
+token the server has not seen yet still goes to ntfy and counts, so guessing tokens stays limited.
+
 ## Rooms
 
 A room is one ntfy topic plus a 32-byte AES key. Every device of the room publishes to the topic and listens to it.

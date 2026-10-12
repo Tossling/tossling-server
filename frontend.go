@@ -99,15 +99,18 @@ func newFrontend(socket string, opts options, store *settingsStore, service *pro
 		IdleConnTimeout: 90 * time.Second,
 	}
 	backend := &url.URL{Scheme: "http", Host: "ntfy"}
+	guard := newAuthGuard(service.manager)
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(backend)
 			pr.Out.Host = pr.In.Host
 			pr.Out.Header.Set(clientIPHeader, clientIP(pr.In, opts.behindProxy))
 		},
-		Transport:     transport,
-		FlushInterval: -1,
+		Transport:      transport,
+		FlushInterval:  -1,
+		ModifyResponse: guard.watch,
 	}
+	guarded := guard.wrap(proxy)
 	static, err := fs.Sub(webFiles, "web/static")
 	if err != nil {
 		panic(err)
@@ -177,12 +180,12 @@ func newFrontend(socket string, opts options, store *settingsStore, service *pro
 	panel.apiRoutes(mux)
 	mux.HandleFunc("POST /v1/account/token", func(w http.ResponseWriter, r *http.Request) {
 		if !panel.deviceAuthed(r) {
-			proxy.ServeHTTP(w, r)
+			guarded.ServeHTTP(w, r)
 			return
 		}
 		panel.issueToken(w, r)
 	})
-	mux.Handle("/", proxy)
+	mux.Handle("/", guarded)
 	return mux
 }
 
