@@ -20,6 +20,16 @@
 {{else}}<p class="empty">{{.T.NoPublishers}}</p>{{end}}
 </section>
 <section class="glass form">
+<div class="row-head">{{.T.ServerTokenTitle}}</div>
+{{if .Token}}<p class="note">{{.T.TokenNote}}</p>
+<div class="cmd"><code>{{.Token}}</code>{{template "copy" (dict "Value" .Token "Label" .T.Copy "Copied" .T.Copied)}}</div>
+{{else}}<p class="note">{{.T.ServerTokenNote}}</p>
+<form method="post" action="/admin/security/show-token">
+<label class="field"><span>{{.T.CurrentPassword}}</span><input type="password" name="current" autocomplete="current-password" required></label>
+<button type="submit" class="secondary">{{.T.ShowToken}}</button>
+</form>{{end}}
+</section>
+<section class="glass form">
 <div class="row-head">{{.T.SetupLink}}</div>
 {{if .SetupLink}}<p class="note">{{.T.SetupLinkReady}}</p>
 <div class="cmd"><code>{{.SetupLink}}</code>{{template "copy" (dict "Value" .SetupLink "Label" .T.Copy "Copied" .T.Copied)}}</div>

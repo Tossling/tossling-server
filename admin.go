@@ -339,6 +339,10 @@ func (a *adminPanel) securityPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *adminPanel) renderSecurity(w http.ResponseWriter, r *http.Request, status int, flash, problem, link string) {
+	a.renderSecurityToken(w, r, status, flash, problem, link, "")
+}
+
+func (a *adminPanel) renderSecurityToken(w http.ResponseWriter, r *http.Request, status int, flash, problem, link, token string) {
 	data := a.page(r, "security")
 	if pubs, err := a.service.publishers(); err == nil {
 		data.Publishers = pubs
@@ -350,6 +354,7 @@ func (a *adminPanel) renderSecurity(w http.ResponseWriter, r *http.Request, stat
 	data.Flash = flash
 	data.Error = problem
 	data.SetupLink = link
+	data.Token = token
 	render(w, status, "admin_security.html", data)
 }
 
@@ -364,6 +369,27 @@ func (a *adminPanel) securityAction(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Print("panel: new setup link issued")
 		a.renderSecurity(w, r, http.StatusOK, "", "", setupURL(a.opts.baseURL, secret))
+	case "show-token":
+		ip := clientIP(r, a.opts.behindProxy)
+		if a.limiter.blocked(ip) {
+			a.renderSecurity(w, r, http.StatusTooManyRequests, "", texts["LoginLimited"], "")
+			return
+		}
+		if !a.store.checkAdminPassword(r.FormValue("current")) {
+			a.limiter.fail(ip)
+			log.Printf("panel: wrong password for the server token from %s", ip)
+			a.renderSecurity(w, r, http.StatusUnauthorized, "", texts["LoginWrong"], "")
+			return
+		}
+		a.limiter.reset(ip)
+		settings, _, err := a.store.load()
+		if err != nil {
+			a.renderSecurity(w, r, http.StatusInternalServerError, "", err.Error(), "")
+			return
+		}
+		log.Print("panel: the server token was shown")
+		w.Header().Set("Cache-Control", "no-store")
+		a.renderSecurityToken(w, r, http.StatusOK, "", "", "", settings.Token)
 	case "password":
 		if !a.store.checkAdminPassword(r.FormValue("current")) {
 			a.renderSecurity(w, r, http.StatusBadRequest, "", texts["LoginWrong"], "")

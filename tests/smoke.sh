@@ -160,6 +160,9 @@ check "finish the setup" 303 "$(code -H "Origin: $URL" -X POST "$URL/setup/$SECR
 check "used setup link" 404 "$(code "$URL/setup/$SECRET")"
 LINK=$(curl -s -b "$JAR" -H "$O" -X POST "$URL/admin/security/setup-link" | grep -o "$URL/setup/[A-Za-z0-9_-]*" | head -1)
 check "panel issues a working setup link" 200 "$(code "$LINK")"
+check "the server token needs the panel password" 401 "$(code -b "$JAR" -H "$O" -d current=wrong-password "$URL/admin/security/show-token")"
+check "the panel shows the server token" 1 "$(curl -s -b "$JAR" -H "$O" -d current=smoke-password-1 "$URL/admin/security/show-token" | grep -c "$TOKEN")"
+check "the security page does not show it by itself" 0 "$(curl -s -b "$JAR" "$URL/admin/security" | grep -c "$TOKEN")"
 check "sign out everywhere" 303 "$(code -b "$JAR" -H "$O" -X POST "$URL/admin/security/logout-all")"
 check "old session ends" 303 "$(code -b "$JAR" "$URL/admin/")"
 for i in 1 2 3 4 5; do code -H "$O" -d password=wrong-wrong-$i "$URL/admin/login" > /dev/null; done
