@@ -163,6 +163,8 @@ check "panel issues a working setup link" 200 "$(code "$LINK")"
 check "the server token needs the panel password" 401 "$(code -b "$JAR" -H "$O" -d current=wrong-password "$URL/admin/security/show-token")"
 check "the panel shows the server token" 1 "$(curl -s -b "$JAR" -H "$O" -d current=smoke-password-1 "$URL/admin/security/show-token" | grep -c "$TOKEN")"
 check "the security page does not show it by itself" 0 "$(curl -s -b "$JAR" "$URL/admin/security" | grep -c "$TOKEN")"
+for i in 1 2 3 4 5; do code -b "$JAR" -H "$O" -d current=wrong-wrong-$i -d password=smoke-password-2 -d repeat=smoke-password-2 "$URL/admin/security/password" > /dev/null; done
+check "guessing the current password is limited" 429 "$(code -b "$JAR" -H "$O" -d current=smoke-password-1 -d password=smoke-password-2 -d repeat=smoke-password-2 "$URL/admin/security/password")"
 check "sign out everywhere" 303 "$(code -b "$JAR" -H "$O" -X POST "$URL/admin/security/logout-all")"
 check "old session ends" 303 "$(code -b "$JAR" "$URL/admin/")"
 for i in 1 2 3 4 5; do code -H "$O" -d password=wrong-wrong-$i "$URL/admin/login" > /dev/null; done
