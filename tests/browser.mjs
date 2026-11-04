@@ -37,6 +37,9 @@ try {
   await open(new URL("/admin/login", url).href);
   await submit("form", { password: "browser-pass-123" });
   check("browser signs in", await evaluate("location.pathname") === "/admin/", await evaluate("location.pathname + ' ' + document.body.innerText.slice(0, 80)"));
+  await open(new URL("/admin/security", url).href);
+  const gap = await evaluate(`(() => { const f = document.querySelector('form[action$="/show-token"]'); return f.querySelector('button').getBoundingClientRect().top - f.querySelector('input').getBoundingClientRect().bottom; })()`);
+  check("a form in a card keeps a gap above its button", gap >= 8, `${gap}px`);
   await open(new URL("/admin/projects", url).href);
   await submit('form[action="/admin/projects"]', { topic: "browser-alerts", name: "Browser" });
   const created = await evaluate("document.body.innerText");
