@@ -85,5 +85,29 @@
       "prefix": "AQIDBAUGBw==",
       "sealed": "VFNZMgAAABABAgMEBQYHAGmGs5LNpdQU5FLiYCLafBw="
     }
+  ],
+  "invite_v2": [
+    {
+      "code": "7kq2m-9xdrt",
+      "normalized": "7KQ2M9XDRT",
+      "seed": "HCBGPSVylwjG5HQTmF04EMYSU8vr1TNfpCaftvvzK0w=",
+      "key": "0UMa+cM19XP9sL52CgeQY4Dw5fMvVCgUq503LhXOgwA=",
+      "topic": "tossling-inv-31fa24af27c74145aed4c68b",
+      "legacy_topic": "tossy-inv-31fa24af27c74145aed4c68b",
+      "nonce": "ICEiIyQlJicoKSor",
+      "plain": "{\"exp\":1791360000,\"k\":\"q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=\",\"n\":\"Studio\",\"o\":\"a1b2c3d4e5f60718\",\"r\":\"tossling-0123456789abcdef01234567\",\"s\":\"https://tossling.example.com\",\"t\":\"tk_example\"}",
+      "sealed": "ICEiIyQlJicoKSoreAN0B0Dio7vjn4EklX+GP36BU5xfxPrxL/qS8omB7NiCiQLGWHOIb6yc+fy9MZgpKvmJTeBfKxmMqBMnRqBzzj5GtAzmjpL9v+m+ikUtqnI2FAx0owEFWRIpJ2X02kJxbLwqkgm0mjzgDLZSuwz7I/FiL+trQB08MXdbevBBcHzyPgjYnsh6ko1PvpBd4opX7XwntfHAMx+Kqx7v5RnVmEkPdnXblvzlQut2kd7pCcJe8LHCXUMQpTcg2gTGWoJH1Yefw6PDwBJ0VwJZzMO+2L7+B/0A"
+    },
+    {
+      "code": "00000-00000",
+      "normalized": "0000000000",
+      "seed": "zaootp0TwN3v4AK0ymAzAO6tPHwdi2Akk5/CYIhj60Y=",
+      "key": "Zec2Eo6ezXLUqeTFoUysrvPSCKj6VPXoQmKsedbDze8=",
+      "topic": "tossling-inv-f3b49930a7ebc4001f912717",
+      "legacy_topic": "tossy-inv-f3b49930a7ebc4001f912717",
+      "nonce": "ICEiIyQlJicoKSor",
+      "plain": "{\"exp\":1791360000,\"k\":\"q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=\",\"n\":\"Studio\",\"o\":\"a1b2c3d4e5f60718\",\"r\":\"tossling-0123456789abcdef01234567\",\"s\":\"https://tossling.example.com\",\"t\":\"tk_example\"}",
+      "sealed": "ICEiIyQlJicoKSorSb0q97iZH0HGt+dqoi9GqJQ9htd3S/re78htlAghwqI/XPl9XmZ8hZZ1zV1DB8zpedPqXbGboKg4V4NM2APU1GlTF1utJDU7sIv/jfOWZRQ754SrRw9U+njl3+PcQ6NfM/KBRhSwuu8wAaswtTnNbpSMCWquJISv4ZnUIRTxhqsNIbEk7bfh2ZKs0++vbJgzn36jGkEBQwb8/gZfOLQMuFITVHjtwmissdzzCkfTHubG0oYkW0FCNmtgSDjaqXCXI/4b035NZ3EBgyri28/IrIoisTpR"
+    }
   ]
 }
