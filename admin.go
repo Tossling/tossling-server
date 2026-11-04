@@ -391,10 +391,18 @@ func (a *adminPanel) securityAction(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		a.renderSecurityToken(w, r, http.StatusOK, "", "", "", settings.Token)
 	case "password":
+		ip := clientIP(r, a.opts.behindProxy)
+		if a.limiter.blocked(ip) {
+			a.renderSecurity(w, r, http.StatusTooManyRequests, "", texts["LoginLimited"], "")
+			return
+		}
 		if !a.store.checkAdminPassword(r.FormValue("current")) {
+			a.limiter.fail(ip)
+			log.Printf("panel: wrong current password from %s", ip)
 			a.renderSecurity(w, r, http.StatusBadRequest, "", texts["LoginWrong"], "")
 			return
 		}
+		a.limiter.reset(ip)
 		if r.FormValue("password") != r.FormValue("repeat") {
 			a.renderSecurity(w, r, http.StatusBadRequest, "", texts["PasswordMismatch"], "")
 			return
