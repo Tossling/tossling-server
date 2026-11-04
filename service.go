@@ -59,7 +59,11 @@ type event struct {
 
 func openUserManager(dataDir string) (*user.Manager, error) {
 	path := filepath.Join(dataDir, "user.db")
-	return user.NewSQLiteManager(path, "", &user.Config{
+	db, err := user.OpenSQLite(path)
+	if err != nil {
+		return nil, err
+	}
+	return user.NewSQLiteManager(db, "", &user.Config{
 		Filename:      path,
 		DefaultAccess: user.PermissionDenyAll,
 		BcryptCost:    user.DefaultUserPasswordBcryptCost,

@@ -32,7 +32,7 @@ func startNtfy(opts options, settings *Settings) (*ntfyBackend, error) {
 	conf := server.NewConfig()
 	conf.BaseURL = opts.baseURL
 	conf.FirebaseKeyFile = opts.firebaseKey
-	conf.ListenHTTP = ""
+	conf.ListenHTTP = nil
 	socket, err := socketPath(dir)
 	if err != nil {
 		return nil, err
