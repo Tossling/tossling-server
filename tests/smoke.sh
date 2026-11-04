@@ -124,6 +124,10 @@ curl -s -b "$JAR" -H "$O" -d topic=panel-alerts -d "name=Panel Alerts" "$URL/adm
 PT=$(grep -o 'tk_[A-Za-z0-9]*' "$TMP/created.html" | head -1)
 check "panel creates a project with a token" 1 "$([ -n "$PT" ] && echo 1 || echo 0)"
 check "panel token publishes" 200 "$(code -H "Authorization: Bearer $PT" -d hello "$URL/panel-alerts")"
+HOOK=$(grep -o "$URL/panel-alerts?template=github&amp;auth=[A-Za-z0-9_-]*" "$TMP/created.html" | head -1 | sed 's/&amp;/\&/')
+check "the token page gives a GitHub webhook" 1 "$([ -n "$HOOK" ] && echo 1 || echo 0)"
+check "the GitHub webhook publishes" 200 "$(code -H "Content-Type: application/json" -d '{"action":"opened","issue":{"number":7,"title":"Smoke","html_url":"https://example.com/7","user":{"login":"x","html_url":"https://example.com/x"}},"repository":{"name":"r","html_url":"https://example.com/r"},"sender":{"login":"x","html_url":"https://example.com/x"}}' "$HOOK")"
+check "the GitHub event has a title" 1 "$(curl -s -H "$AUTH" "$URL/panel-alerts/json?poll=1" | grep -c 'Issue opened: #7 Smoke')"
 curl -s -N -m 4 -b "$JAR" "$URL/admin/projects/panel-alerts/events" > "$TMP/live.txt" &
 LIVE=$!
 sleep 1
