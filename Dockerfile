@@ -16,7 +16,8 @@ RUN apk add --no-cache ca-certificates tzdata
 COPY --from=build /src/build/tossling-server /usr/local/bin/tossling-server
 COPY --from=build /src/LICENSE /src/NOTICE /usr/share/doc/tossling-server/
 COPY --from=build /src/licenses /usr/share/doc/tossling-server/licenses
-ENV TOSSLING_DATA=/data TOSSLING_LISTEN=:8090
+# The container starts as root, and tossling-server hands /data to 10001 and drops to it before anything else.
+ENV TOSSLING_DATA=/data TOSSLING_LISTEN=:8090 TOSSLING_RUN_AS=10001:10001
 VOLUME /data
 EXPOSE 8090
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD wget -qO- http://127.0.0.1:8090/v1/tossling/health >/dev/null || exit 1

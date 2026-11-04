@@ -41,6 +41,21 @@ jobs:
           TOSSLING_CLI: docker exec tossling tossling-server
       - name: New setup link
         run: test "$(curl -s -o /dev/null -w '%{http_code}' "$(docker exec tossling tossling-server setup-link)")" = 200
+      - name: The server runs as 10001 and owns its data
+        run: |
+          docker exec tossling grep -qE '^Uid:[[:space:]]+10001[[:space:]]' /proc/1/status
+          test "$(docker exec tossling stat -c %u:%g /data/user.db)" = 10001:10001
+          test "$(docker exec tossling find /data ! -user 10001 | wc -l)" = 0
+      - name: Data written as root by an older image
+        run: |
+          docker volume create old-data
+          docker run --rm -v old-data:/data alpine:3 sh -c 'echo old > /data/written-by-root && chmod 600 /data/written-by-root'
+          docker run -d --name tossling-old -p 18092:8090 -v old-data:/data -e TOSSLING_BASE_URL=http://127.0.0.1:18092 tossling-server
+          for i in $(seq 1 50); do curl -sf http://127.0.0.1:18092/v1/tossling/health && break; sleep 0.2; done
+          curl -sf http://127.0.0.1:18092/v1/tossling/health
+          test "$(docker exec tossling-old stat -c %u /data/written-by-root)" = 10001
+          docker exec tossling-old tossling-server project add upgraded Upgraded > /dev/null
+          test "$(docker exec tossling-old find /data ! -user 10001 | wc -l)" = 0
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - name: The arm64 image

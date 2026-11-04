@@ -56,6 +56,9 @@ func parseOptions(args []string) options {
 }
 
 func main() {
+	if err := dropRoot(); err != nil {
+		log.Fatal(err)
+	}
 	if len(os.Args) > 1 && os.Args[1] == "setup-link" {
 		opts := parseOptions(os.Args[2:])
 		secret, err := newSettingsStore(opts.dataDir).newSetupLink()

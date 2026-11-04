@@ -57,7 +57,8 @@ The image is built for linux/amd64 and linux/arm64. To build it yourself instead
 
 The log of the first start shows a link to the setup page: it checks the address, shows the command
 for the Mac and the token, and stops working once you press Done. A new link:
-`docker compose exec tossling-server tossling-server setup-link`. Data lives in `./data`.
+`docker compose exec tossling-server tossling-server setup-link`. Data lives in `./data`. The server runs as user
+10001 and makes `./data` its own when it starts (`TOSSLING_RUN_AS` sets another `uid:gid`).
 Put the server behind HTTPS (a reverse proxy such as Caddy or Nginx Proxy Manager) and add
 `TOSSLING_BEHIND_PROXY: "true"`; the proxy must accept request bodies up to 600 MB for large files.
 
@@ -95,7 +96,7 @@ The same project operations are open to the Tossling apps with the device token:
 ## Instant delivery on Android
 
 The Tossling app wakes up through Firebase Cloud Messaging. Set `TOSSLING_FIREBASE_KEY_FILE` to the service account
-JSON of the Firebase project the app is built with (mount it into the container). Without it new items reach
+JSON of the Firebase project the app is built with (mount it into the container, readable by user 10001). Without it new items reach
 the phone when the app opens, unless the app keeps a connection of its own (its «Keep a connection» setting);
 `/v1/tossling/health` reports `"push": false` so the app can turn that on by itself.
 
