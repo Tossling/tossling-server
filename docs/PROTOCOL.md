@@ -29,7 +29,8 @@ keep that name forever (changing them would break every existing room).
 
 Every request carries the device token: `Authorization: Bearer <token>`. The token belongs to the server's device
 user (`tossy`), which can read and write `tossling-*`, `tossy-*`, `mac` and `claude`, and read every other topic.
-Anyone, without a token, can read `tossling-inv-*` and `tossy-inv-*` (invites, below).
+Anyone, without a token, can read `tossling-inv-*` and `tossy-inv-*` (invites, below), and download an attachment by
+its URL.
 
 ### Health
 
@@ -67,13 +68,18 @@ body that is not a JSON error from `/v1/tossling/…` retries under `/v1/tossy/�
 | Publish with an attachment | `PUT /<topic>`, body is the attachment, `X-Message: <message>`, `X-Filename: clip.bin` |
 | Listen | `GET /<topic>[,<topic>…]/json?since=<id or duration>`: one JSON event per line, keep-alive events in between |
 | Fetch what was missed | `GET /<topic>/json?poll=1&since=<id or duration>` |
-| Download an attachment | `GET <attachment.url>` with the token |
+| Download an attachment | `GET <attachment.url>`, with the token only when the URL has the scheme, host and port of the room's server |
 | Subscriptions (projects) | `GET /v1/account` → `subscriptions: [{"base_url", "topic", "display_name"}]` |
 | New token | `POST /v1/account/token` with `{"label": "tossling", "expires": 0}` → `{"token"}` |
 | Retire a token | `DELETE /v1/account/token` with `X-Token: <old token>` |
 
 The apps send `X-Priority: 4`. Only `"event": "message"` events matter; everything else is skipped. Attachments up to
-520 MiB are kept for 3 hours.
+520 MiB are kept for 3 hours. ntfy keeps a body of up to 4,096 bytes as the message and turns a longer one into an
+attachment.
+
+The attachment URL comes with the event, outside the envelope, and anyone who can publish to the topic can point it
+anywhere (`X-Attach`). So the token goes only to the room's own server, and a refusal from another host does not
+count against the server (below).
 
 A room token must not expire, so devices always send `"expires": 0`. Plain ntfy gives a token without `expires` 72
 hours, and nothing extends it. Tossling Server 0.4.0 and later issue room tokens without an expiry even when a device
@@ -137,30 +143,45 @@ the same way with the same key: `nonce || ciphertext || tag`, raw bytes, not Bas
 | `re` | `true` on the `hello` of a device that has just joined: its `pk` replaces the one the others knew |
 | `inv` | On a `hello`: the invite topic it answers |
 | `e`, `keys`, `r`, `key` | Fields of `rekey` and `move`, below |
+| `ts` | When the sender sealed the message: Unix time in milliseconds |
+| `mid` | The message's own id: 16 lowercase hex characters (8 random bytes), new for every message |
+| `sens` | `true` on text or an image the sender's system marks as secret, such as a password manager's copy |
 
 Readers ignore keys they do not know.
 
 ### Content
 
-- **Text**: `k=text`, `m=text/plain`. Up to 2,400 bytes of UTF-8 go inline as `v` with `POST`; longer text is the
+- **Text**: `k=text`, `m=text/plain`. Up to 2,400 bytes of UTF-8 go inline as `v` with `POST`, if the envelope with
+  them fits in ntfy's 4,096-byte message (escaping and Base64 can take 2,400 bytes past it); otherwise the text is the
   attachment. The Mac sends at most 1 MB of text.
 - **Image**: `k=image` with its MIME type (`image/png`, `image/jpeg`, …), always an attachment. The Mac sends up to
   15 MB and scales bigger images down.
 - **File**: `k=file`, `f`, `x=2`, `s`, streamed (next section). Files are sent only when the user asks; up to 500 MB.
   A folder goes as a `.zip`.
+- **Secret content** (`sens: true`): the receiver puts it on the clipboard marked so that clipboard history, cloud
+  clipboards and previews leave it out (Android `ClipDescription.EXTRA_IS_SENSITIVE`; iOS `localOnly` with an
+  expiration date; macOS `org.nspasteboard.ConcealedType`; Windows `CanIncludeInClipboardHistory = 0` and
+  `CanUploadToCloudClipboard = 0`; Linux `x-kde-passwordManagerHint: secret`), does not keep it in its own history and
+  does not show it in notifications. Apps do not send such content by themselves: only when the user sends it on
+  purpose, and then with `sens`.
 
 ### Receiving
 
 1. Open the envelope; a message that does not open is skipped (another room key).
 2. Skip it if `id` is this device's id, or if `to` is present and does not include this device.
 3. Control kinds are handled as described below.
-4. Content older than 15 minutes (by the event's `time`) is not put on the clipboard (Android still lists it in its
-   history). A file is still fetched for up to 3 hours, then it is gone from the server.
-5. Echo protection: a device that has just put something on the clipboard, or just sent it, ignores the same content
+4. Skip it if its `mid` is among those this device handled in the last 3 hours: the server, or anyone with a token,
+   can publish an old envelope again.
+5. Content older than 15 minutes is not put on the clipboard (Android still lists it in its history). The age is the
+   larger of now minus the event's `time` and now minus `ts`, so a replayed envelope stays old; `ts` more than 5
+   minutes in the future counts as old too. A message without `ts` (an older sender) goes by the event's `time` alone.
+   A file is still fetched for up to 3 hours, then it is gone from the server.
+6. Echo protection: a device that has just put something on the clipboard, or just sent it, ignores the same content
    (by SHA-256) coming back within 60 seconds, and does not send what it has just received.
 
 A client remembers the id of the last event it handled and asks for `since=<id>` after a reconnect; the first time it
-asks for `since=15m` (the Mac uses `900s`).
+asks for `since=15m` (the Mac uses `900s`). Since ntfy 2.31 (Tossling Server after 0.5.2), `since=<id>` also returns the other
+messages of that id's second, so a client keeps the ids of the latest events it handled and skips them.
 
 ## Files
 
@@ -186,8 +207,11 @@ There is no member list on the server: every device builds its own from the mess
 
 - Any message adds or refreshes its sender: `id`, `n`, `src`, `pk`, and the event time as "last seen". A device seen
   within 5 minutes counts as online.
-- A stored `pk` changes only through a `hello` with `re: true`, so a device in the room cannot quietly swap another
-  device's key.
+- A stored `pk` changes only through a fresh `hello` with `re: true` (its `ts` within 15 minutes). Any member can
+  send one in another device's name, so the change is never silent: the device keeps the first key it saw for that
+  member and, when a `re` hello brings a different one, takes it but marks the member "key changed" with the time.
+  Devices shows the mark until the user accepts the key there, and removing a device warns, naming every remaining
+  device whose key changed, before anything is sent (see [Removing a device](#removing-a-device)).
 - **hello**: "I am here", with `pk`. Sent when a device joins (`re: true`), changes its name, or answers a ping
   (`to: [the pinging device]`).
 - **ping**: asks everyone to answer with a `hello`. The Mac sends `ping` on start when it does not know anyone yet,
@@ -213,10 +237,17 @@ A desktop shows its room as a QR code. The payload is JSON with sorted keys:
 
 A device already in the room invites another one with a one-time code, without the server storing anything.
 
-- The code is 8 characters from `0123456789ABCDEFGHJKMNPQRSTVWXYZ`, shown as `7KQ2-M9XD`. Before use it is
-  normalized: upper case, letters and digits only.
-- Topic: the room prefix, `inv-`, and the first 12 bytes of `SHA-256("tossy-invite-topic:" + code)` in hex.
-- Key: `PBKDF2-HMAC-SHA256(password = code, salt = "tossy-invite-v1", 300,000 iterations, 32 bytes)`.
+- The code is 10 characters from `0123456789ABCDEFGHJKMNPQRSTVWXYZ` (50 bits), shown as `7KQ2M-9XDRT`. Before use it
+  is normalized: upper case, letters and digits only.
+- Seed: `PBKDF2-HMAC-SHA256(password = code, salt = "tossling-invite-v2", 600,000 iterations, 32 bytes)`.
+- Key: `HKDF-SHA256(ikm = seed, salt = empty, info = "tossling-invite-key", 32 bytes)`.
+- Topic: the room prefix, `inv-`, and `HKDF-SHA256(ikm = seed, salt = empty, info = "tossling-invite-topic", 12 bytes)`
+  in hex (vectors: `invite_v2`). The topic comes from the stretched seed, so whoever sees the topic name (the server,
+  a proxy's log) cannot find the code faster than by running PBKDF2 for every guess.
+- Codes of 8 characters are version 1, made by older apps: topic = the first 12 bytes of
+  `SHA-256("tossy-invite-topic:" + code)` in hex, key = `PBKDF2-HMAC-SHA256(code, "tossy-invite-v1", 300,000, 32)`
+  (vectors: `invite`). The topic of a version 1 code gives the code away in minutes, so apps only join with them and
+  never make them. The joiner picks the version by the code's length.
 - The invite is the JSON `{"s", "t", "r", "k", "n", "exp", "o"?}` (server, token, room, room key, inviter's name,
   expiry in Unix seconds, owner) sealed with that key like an envelope (vectors: `invite`).
 - The inviter publishes it with `X-Cache: no`, so ntfy delivers it only to whoever is listening right now, and
@@ -247,8 +278,18 @@ removed device loses its own token at once.
 Any device can remove another one except the owner. Removal moves everyone else to a new room the removed device
 does not know:
 
-1. Make a new room topic and key. If every remaining device has a `pk`, also issue a new shared token
-   (`POST /v1/account/token`). If the removal stops before the `rekey` is published, delete that token again.
+Before anything is sent, the removing device checks the remaining devices (every member except itself and the
+removed one):
+
+- If one has no `pk`, the removal is refused and names it: that device has to be opened (it then says `hello` with its
+  key) or updated first. Otherwise the new key would have to go under the old room key, which the removed device knows.
+- If one is marked "key changed" (see [Devices in a room](#devices-in-a-room)), the user is warned and names it, and
+  goes on only after confirming.
+
+Then:
+
+1. Make a new room topic and key, and issue a new shared token (`POST /v1/account/token`). If the removal stops before
+   the `rekey` is published, delete that token again.
 2. Publish `kick` with `to: [removed id]`. That device forgets the room (the owner ignores a kick).
 3. Publish `rekey` with `to` = the remaining ids, `e` = an ephemeral X25519 public key and `keys` = for each
    remaining id, the secret `{"key", "r", "t"?}` (JSON, sorted keys) sealed for that device (vectors: `rekey`):
@@ -259,8 +300,8 @@ does not know:
    box    = Base64( nonce[12] || AES-256-GCM(KEK, nonce, secret, aad = recipient id) || tag[16] )
    ```
 
-   If some remaining device has no `pk` yet, `r` and `key` also go in the clear inside the envelope (still under the
-   old room key) and no new token is issued.
+   Apps before this rule put `r` and `key` in the clear inside the envelope (still under the old room key) when a
+   remaining device had no `pk`, and issued no new token; a receiver still accepts such a `rekey`.
 4. Everyone, the sender included, switches to the new room and shared token, forgets members not in `to` plus the
    sender, and says `hello` there. A device with a [token of its own](#device-tokens) keeps talking with it and only
    puts the new shared token aside. On a server with device tokens the sender then deletes the removed device's own
@@ -303,6 +344,8 @@ carries no content: the phone then fetches the room with `poll=1`.
 - Unknown meta keys, unknown kinds and unknown events are ignored.
 - Both topic prefixes are rooms; both invite topics are listened to; both API prefixes are tried.
 - Labels inside hashes and key derivation stay as they are: `tossy-device:`, `tossy-invite-topic:`,
-  `tossy-invite-v1`, `tossy-rekey-v1`.
+  `tossy-invite-v1`, `tossy-rekey-v1`, `tossling-invite-v2`, `tossling-invite-key`, `tossling-invite-topic`.
+- `ts`, `mid` and `sens`, version 2 invites and the removal checks came in November 2026. Older apps ignore the new
+  keys, messages from older apps come without them, and an older app cannot join with a 10-character invite code.
 - `src`: `mac`, `windows` and `linux` are computers; `android`, `ios` and any value an app does not know are phones.
   Apps before 0.4 treat only `mac` as a computer and show the others as phones.
