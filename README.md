@@ -56,7 +56,7 @@ The image is built for linux/amd64 and linux/arm64. To build it yourself instead
 `docker build -t tossling-server .`.
 
 The log of the first start shows a link to the setup page: it checks the address, shows the command
-for the Mac and the token, and stops working once you press Done. A new link:
+for the Mac and the token, and stops working once you press Done or after 24 hours. A new link:
 `docker compose exec tossling-server tossling-server setup-link`. Data lives in `./data`. The server runs as user
 10001 and makes `./data` its own when it starts (`TOSSLING_RUN_AS` sets another `uid:gid`).
 Put the server behind HTTPS (a reverse proxy such as Caddy or Nginx Proxy Manager) and add

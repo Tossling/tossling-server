@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"heckel.io/ntfy/v2/user"
@@ -16,12 +17,16 @@ import (
 
 var errShortPassword = errors.New("the password must be at least 10 characters")
 
+// setupLinkLife is how long a setup link works: the page shows the server token, and the link lands in proxy logs.
+const setupLinkLife = 24 * time.Hour
+
 const deviceUser = "tossy"
 
 type Settings struct {
 	PasswordHash string `json:"password_hash"`
 	Token        string `json:"token"`
 	SetupSecret  string `json:"setup_secret,omitempty"`
+	SetupIssued  int64  `json:"setup_issued,omitempty"`
 	AdminHash    string `json:"admin_hash,omitempty"`
 	SessionKey   string `json:"session_key,omitempty"`
 }
@@ -80,7 +85,7 @@ func (s *settingsStore) loadLocked() (*Settings, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	settings := &Settings{PasswordHash: hash, Token: user.GenerateToken(), SetupSecret: secret}
+	settings := &Settings{PasswordHash: hash, Token: user.GenerateToken(), SetupSecret: secret, SetupIssued: time.Now().Unix()}
 	if err := s.write(settings); err != nil {
 		return nil, false, err
 	}
@@ -117,6 +122,7 @@ func (s *settingsStore) newSetupLink() (string, error) {
 	settings, err := s.update(func(settings *Settings) error {
 		secret, err := randomString(24)
 		settings.SetupSecret = secret
+		settings.SetupIssued = time.Now().Unix()
 		return err
 	})
 	if err != nil {
@@ -127,10 +133,27 @@ func (s *settingsStore) newSetupLink() (string, error) {
 
 func (s *settingsStore) checkSetupSecret(secret string) (*Settings, bool) {
 	settings, _, err := s.load()
-	if err != nil || settings.SetupSecret == "" || secret == "" {
+	if err != nil || settings.SetupSecret == "" || secret == "" || settings.setupExpired(time.Now()) {
 		return nil, false
 	}
 	return settings, subtle.ConstantTimeCompare([]byte(settings.SetupSecret), []byte(secret)) == 1
+}
+
+// setupExpired: a link from before setup links had a time counts from the first start of this version (see
+// startSetupClock).
+func (s *Settings) setupExpired(now time.Time) bool {
+	return s.SetupIssued > 0 && now.Sub(time.Unix(s.SetupIssued, 0)) > setupLinkLife
+}
+
+// startSetupClock gives a setup link made by an older version its 24 hours from now.
+func (s *settingsStore) startSetupClock() error {
+	_, err := s.update(func(settings *Settings) error {
+		if settings.SetupSecret != "" && settings.SetupIssued == 0 {
+			settings.SetupIssued = time.Now().Unix()
+		}
+		return nil
+	})
+	return err
 }
 
 func (s *settingsStore) setAdminPassword(password string) error {

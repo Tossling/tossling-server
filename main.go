@@ -93,8 +93,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if settings.SetupSecret != "" {
-		fmt.Printf("\nFinish the setup on this page:\n\n    %s\n\n", setupURL(opts.baseURL, settings.SetupSecret))
+	if settings.SetupSecret != "" && settings.SetupIssued == 0 {
+		if err := store.startSetupClock(); err != nil {
+			log.Fatal(err)
+		}
+	} else if settings.SetupSecret != "" && settings.setupExpired(time.Now()) {
+		fmt.Printf("\nThe setup link has expired. A new one: tossling-server setup-link\n\n")
+	} else if settings.SetupSecret != "" {
+		fmt.Printf("\nFinish the setup on this page (it works for 24 hours):\n\n    %s\n\n", setupURL(opts.baseURL, settings.SetupSecret))
 	}
 
 	backend, err := startNtfy(opts, settings)
