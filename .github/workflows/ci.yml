@@ -17,15 +17,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: stable
           cache-dependency-path: go.sum
       - run: make vet test build smoke
       - name: Known vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -tags sqlite_omit_load_extension,osusergo,netgo .
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: make browser
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - run: docker build -t tossling-server .
       - name: Run the image
         run: |
@@ -62,8 +62,8 @@ jobs:
           test "$(docker exec tossling-old stat -c %u /data/written-by-root)" = 10001
           docker exec tossling-old tossling-server project add upgraded Upgraded > /dev/null
           test "$(docker exec tossling-old find /data ! -user 10001 | wc -l)" = 0
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
       - name: The arm64 image
         run: |
           docker buildx build --platform linux/arm64 --cache-from type=gha --cache-to type=gha,mode=max --load -t tossling-server:arm64 .
@@ -75,7 +75,7 @@ jobs:
         run: docker logs tossling
       - name: Save the image
         run: docker save tossling-server | gzip > tossling-server-image.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tossling-server-image
           path: tossling-server-image.tar.gz
