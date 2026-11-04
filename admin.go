@@ -284,6 +284,7 @@ func (a *adminPanel) showToken(w http.ResponseWriter, r *http.Request, topic, to
 	}
 	data.Token = token
 	data.Command = curlExample(a.opts.baseURL, topic, token)
+	data.Webhooks = webhookURLs(a.opts.baseURL, topic, token)
 	render(w, http.StatusOK, "admin_token.html", data)
 }
 

@@ -9,6 +9,11 @@
 <div class="divider"></div>
 <div class="step"><span class="num">2</span><div class="step-body"><div class="step-title">{{.T.Example}}</div>
 <div class="cmd"><code>{{.Command}}</code>{{template "copy" (dict "Value" .Command "Label" .T.Copy "Copied" .T.Copied)}}</div></div></div>
+{{if .Webhooks}}<div class="divider"></div>
+<div class="step"><span class="num">3</span><div class="step-body"><div class="step-title">{{.T.Webhooks}}</div>
+<p class="note">{{.T.WebhooksNote}}</p>
+{{range .Webhooks}}<div class="cmd-label">{{.Name}}</div>
+<div class="cmd"><code>{{.URL}}</code>{{template "copy" (dict "Value" .URL "Label" $.T.Copy "Copied" $.T.Copied)}}</div>{{end}}</div></div>{{end}}
 </section>
 {{with .Project}}<a class="primary link-button" href="/admin/projects/{{.Topic}}">{{$.T.Back}}</a>{{end}}
 {{template "admin-bottom" .}}

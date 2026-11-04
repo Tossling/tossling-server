@@ -87,6 +87,7 @@ type pageData struct {
 	DeviceChannel bool
 	SetupLink     string
 	Form          url.Values
+	Webhooks      []webhook
 }
 
 func newFrontend(socket string, opts options, store *settingsStore, service *projectService) http.Handler {

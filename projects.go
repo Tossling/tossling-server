@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"regexp"
@@ -92,6 +93,22 @@ func runProject(args []string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown project action %q", action)
+}
+
+type webhook struct {
+	Name string
+	URL  string
+}
+
+// webhookURLs are ready webhook addresses for services that cannot set a header: ntfy's own templates turn their JSON
+// into a title and a message, and the token travels as the auth parameter (base64 of the Authorization header).
+func webhookURLs(baseURL, topic, token string) []webhook {
+	auth := base64.RawURLEncoding.EncodeToString([]byte("Bearer " + token))
+	var out []webhook
+	for _, w := range []struct{ name, template string }{{"GitHub", "github"}, {"Grafana", "grafana"}, {"Alertmanager", "alertmanager"}} {
+		out = append(out, webhook{Name: w.name, URL: fmt.Sprintf("%s/%s?template=%s&auth=%s", baseURL, topic, w.template, auth)})
+	}
+	return out
 }
 
 func curlExample(baseURL, topic, token string) string {
