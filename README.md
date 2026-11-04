@@ -93,12 +93,13 @@ The same project operations are open to the Tossling apps with the device token:
 `POST /v1/tossling/projects` (`{"topic": "…", "name": "…", "publisher": "…"}`, answers with the publisher token once) and
 `DELETE /v1/tossling/projects/<channel>`.
 
-## Instant delivery on Android
+## Instant delivery to phones
 
-The Tossling app wakes up through Firebase Cloud Messaging. Set `TOSSLING_FIREBASE_KEY_FILE` to the service account
-JSON of the Firebase project the app is built with (mount it into the container, readable by user 10001). Without it new items reach
-the phone when the app opens, unless the app keeps a connection of its own (its «Keep a connection» setting);
-`/v1/tossling/health` reports `"push": false` so the app can turn that on by itself.
+The Android and iPhone apps wake up through Firebase Cloud Messaging, which reaches an iPhone through Apple's push
+service. Set `TOSSLING_FIREBASE_KEY_FILE` to the service account JSON of the Firebase project the apps are built with
+(mount it into the container, readable by user 10001). Without it new items reach the phone when the app opens. The
+Android app can keep a connection of its own instead (its «Keep a connection» setting): `/v1/tossling/health` reports
+`"push": false`, and the app turns that on by itself.
 
 The health answer also carries `url`, the address from `-base-url`. Apps that reach the server under another
 name (an old domain) check that the new address answers with the same token and move there by themselves, so a
