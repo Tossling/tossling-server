@@ -41,10 +41,16 @@ func (l *loginLimiter) blocked(ip string) bool {
 	return f != nil && time.Now().Before(f.until)
 }
 
+// loginLimiterKeep is how many addresses the limiter keeps before it drops the ones whose window has passed.
+const loginLimiterKeep = 1000
+
 func (l *loginLimiter) fail(ip string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := time.Now()
+	if len(l.fails) >= loginLimiterKeep {
+		l.forget(now)
+	}
 	f := l.fails[ip]
 	if f == nil || now.Sub(f.first) > loginLockout {
 		f = &loginFails{first: now}
@@ -53,6 +59,16 @@ func (l *loginLimiter) fail(ip string) {
 	f.count++
 	if f.count >= loginAttempts {
 		f.until = now.Add(loginLockout)
+	}
+}
+
+// forget drops the addresses whose window has passed and that are not locked out: a sign-in page hit from many
+// addresses would otherwise keep one entry per address for as long as the server runs.
+func (l *loginLimiter) forget(now time.Time) {
+	for ip, f := range l.fails {
+		if now.Sub(f.first) > loginLockout && !now.Before(f.until) {
+			delete(l.fails, ip)
+		}
 	}
 }
 
