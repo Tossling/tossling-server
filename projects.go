@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -87,7 +86,7 @@ func runProject(args []string) error {
 			return err
 		}
 		if err := service.remove(positional[0]); err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return fmt.Errorf("project %s is not fully removed, run the command again: %w", positional[0], err)
 		}
 		fmt.Printf("Project %s removed: nobody can publish there any more.\n", positional[0])
 		return nil
