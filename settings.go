@@ -50,6 +50,10 @@ func randomString(n int) (string, error) {
 func (s *settingsStore) load() (*Settings, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.loadLocked()
+}
+
+func (s *settingsStore) loadLocked() (*Settings, bool, error) {
 	data, err := os.ReadFile(s.path)
 	if err == nil {
 		var settings Settings
@@ -95,13 +99,14 @@ func (s *settingsStore) write(settings *Settings) error {
 	return os.Rename(tmp, s.path)
 }
 
+// update reads, changes and writes the settings under one lock, so two changes at once cannot drop each other.
 func (s *settingsStore) update(change func(*Settings) error) (*Settings, error) {
-	settings, _, err := s.load()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	settings, _, err := s.loadLocked()
 	if err != nil {
 		return nil, err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := change(settings); err != nil {
 		return nil, err
 	}
