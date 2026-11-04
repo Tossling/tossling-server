@@ -1,0 +1,15 @@
+# Go modules are left out: go.mod replaces ntfy with ./third_party/ntfy, which `make deps` fills and git ignores,
+# so Dependabot cannot resolve them. govulncheck in CI (on every push and weekly) covers them instead.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directories: ["/", "/demo"]
+    schedule:
+      interval: weekly
