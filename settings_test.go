@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestNewServersUseTheTosslingSettingsFile(t *testing.T) {
@@ -47,5 +48,50 @@ func TestChangesAtOnceAllLand(t *testing.T) {
 	}
 	if len(settings.SessionKey) != 50 {
 		t.Fatalf("%d of 50 changes landed", len(settings.SessionKey))
+	}
+}
+
+func TestASetupLinkWorksForADay(t *testing.T) {
+	store := newSettingsStore(t.TempDir())
+	settings, _, err := store.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := store.checkSetupSecret(settings.SetupSecret); !ok {
+		t.Fatal("a new link does not work")
+	}
+	if _, err := store.update(func(s *Settings) error { s.SetupIssued = time.Now().Add(-setupLinkLife - time.Minute).Unix(); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := store.checkSetupSecret(settings.SetupSecret); ok {
+		t.Fatal("a link older than a day still works")
+	}
+	secret, err := store.newSetupLink()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := store.checkSetupSecret(secret); !ok {
+		t.Fatal("a new link from setup-link does not work")
+	}
+}
+
+func TestALinkFromAnOlderVersionGetsItsDayFromNow(t *testing.T) {
+	store := newSettingsStore(t.TempDir())
+	settings, _, err := store.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.update(func(s *Settings) error { s.SetupIssued = 0; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.startSetupClock(); err != nil {
+		t.Fatal(err)
+	}
+	after, _, _ := store.load()
+	if after.SetupIssued == 0 || time.Since(time.Unix(after.SetupIssued, 0)) > time.Minute {
+		t.Fatalf("setup_issued = %d", after.SetupIssued)
+	}
+	if _, ok := store.checkSetupSecret(settings.SetupSecret); !ok {
+		t.Fatal("the old link stopped working at once")
 	}
 }

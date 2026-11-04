@@ -32,7 +32,7 @@ var english = Texts{
 	"Done":          "Done, close this page",
 	"DoneNote":      "The link works until you press Done. A new one:",
 	"LostTitle":     "This link does not work",
-	"LostText":      "It is wrong or already used. A new one on the server:",
+	"LostText":      "It is wrong, already used or older than 24 hours. A new one on the server:",
 
 	"AdminTitle":       "Panel password",
 	"AdminNote":        "To manage projects in the browser",
@@ -151,7 +151,7 @@ var russian = Texts{
 	"Done":          "Готово, закрыть страницу",
 	"DoneNote":      "Ссылка работает, пока не нажмёшь «Готово». Новую выдаст команда",
 	"LostTitle":     "Ссылка не работает",
-	"LostText":      "Она неверна или уже использована. Новую выдаст на сервере команда",
+	"LostText":      "Она неверна, уже использована или старше суток. Новую выдаст на сервере команда",
 
 	"AdminTitle":       "Пароль для панели",
 	"AdminNote":        "Чтобы управлять проектами в браузере",
