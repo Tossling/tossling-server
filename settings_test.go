@@ -60,7 +60,10 @@ func TestASetupLinkWorksForADay(t *testing.T) {
 	if _, ok := store.checkSetupSecret(settings.SetupSecret); !ok {
 		t.Fatal("a new link does not work")
 	}
-	if _, err := store.update(func(s *Settings) error { s.SetupIssued = time.Now().Add(-setupLinkLife - time.Minute).Unix(); return nil }); err != nil {
+	if _, err := store.update(func(s *Settings) error {
+		s.SetupIssued = time.Now().Add(-setupLinkLife - time.Minute).Unix()
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := store.checkSetupSecret(settings.SetupSecret); ok {
