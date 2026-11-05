@@ -303,9 +303,9 @@ a.primary.link-button { color: var(--onac); border: 0; }
 a.primary.link-button:hover { text-decoration: none; }
 .form > .primary { flex: none; margin: 4px 16px 0; height: 52px; }
 .form > .field:first-child { margin-top: 16px; }
-/* A form inside a card (show the token, change the password): the same gap between its fields and its button. */
-.form > form { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
-.form > form > .field { align-self: stretch; }
+/* A form inside a card (show the token, a new setup link, the setup page's password): the same gap between its fields
+   and its button, and a button as wide as the card's own, as in Change the password. */
+.form > form { display: flex; flex-direction: column; gap: 12px; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .actions form { margin: 0; }
