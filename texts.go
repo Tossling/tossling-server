@@ -12,7 +12,7 @@ type Texts map[string]string
 var english = Texts{
 	"Lang":          "en",
 	"Running":       "The server is running",
-	"Lead":          "One clipboard for your Macs and phone.",
+	"Lead":          "One clipboard for your computers and phones.",
 	"Note":          "This server only relays encrypted messages between the devices of a room.",
 	"Project":       "Tossling on GitHub",
 	"SetupTitle":    "The server is ready",
@@ -133,7 +133,7 @@ var english = Texts{
 var russian = Texts{
 	"Lang":          "ru",
 	"Running":       "Сервер работает",
-	"Lead":          "Общий буфер обмена твоих Mac и телефона.",
+	"Lead":          "Общий буфер обмена твоих компьютеров и телефонов.",
 	"Note":          "Этот сервер только пересылает зашифрованные сообщения между устройствами комнаты.",
 	"Project":       "Tossling на GitHub",
 	"SetupTitle":    "Сервер готов",
