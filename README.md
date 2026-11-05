@@ -86,7 +86,9 @@ rooms, `mac` and `claude`.
 
 `/admin` manages the server in the browser: an overview (rooms in use, project events, storage, Firebase), projects with
 their recent events (create, rename, send a test event, new publisher token, delete) and security (room tokens and
-publishers with when their tokens were last used, a new setup link, the panel password, signing out everywhere). The password is set on the
+publishers with when their tokens were last used, a new setup link, the panel password, signing out everywhere). The page with a new publisher token also gives
+webhook addresses for GitHub, Grafana and Alertmanager: they carry the token in the address, and ntfy's templates turn
+their JSON into a title and a message. The password is set on the
 setup page or with `tossling-server admin-password`. Sessions last 30 days; sign-in attempts are limited per address.
 
 The same project operations are open to the Tossling apps with the device token: `GET /v1/tossling/projects`,
@@ -98,7 +100,7 @@ The same project operations are open to the Tossling apps with the device token:
 The Android and iPhone apps wake up through Firebase Cloud Messaging, which reaches an iPhone through Apple's push
 service. Set `TOSSLING_FIREBASE_KEY_FILE` to the service account JSON of the Firebase project the apps are built with
 (mount it into the container, readable by user 10001). Without it new items reach the phone when the app opens. The
-Android app can keep a connection of its own instead (its «Keep a connection» setting): `/v1/tossling/health` reports
+Android app can keep a connection of its own instead (its "Keep a connection" setting): `/v1/tossling/health` reports
 `"push": false`, and the app turns that on by itself.
 
 The health answer also carries `url`, the address from `-base-url`. Apps that reach the server under another
@@ -117,7 +119,8 @@ make build
 On the first start the server creates the device user (`tossy`, the name devices have always used), its access rules and a token, and prints a link
 to the setup page; `tossling-server setup-link` prints a new one. `-listen` sets the address (default `:8090`); `-behind-proxy` takes the client
 address from `X-Forwarded-For` when a reverse proxy stands in front. Every flag can also come from the
-environment: `TOSSLING_BASE_URL`, `TOSSLING_DATA`, `TOSSLING_LISTEN`, `TOSSLING_BEHIND_PROXY=true`, `TOSSLING_FIREBASE_KEY_FILE`, `TOSSLING_DEMO=true`.
+environment: `TOSSLING_BASE_URL`, `TOSSLING_DATA`, `TOSSLING_LISTEN`, `TOSSLING_BEHIND_PROXY=true`, `TOSSLING_FIREBASE_KEY_FILE`, `TOSSLING_DEMO=true`,
+`TOSSLING_RUN_AS` (Linux, when started as root).
 `-demo` is for a public demo server, see [demo/](demo/README.md).
 Only one server may use a data directory at a time.
 
